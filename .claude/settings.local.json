@@ -6,7 +6,10 @@
       "Bash(mv /Users/mateo/Documents/GitHub/campomaq-intern-app/.claude /tmp/campomaq-claude-backup)",
       "Bash(npx create-expo-app@latest /Users/mateo/Documents/GitHub/campomaq-intern-app --yes)",
       "Bash(npx tsc *)",
-      "Bash(npx expo *)"
+      "Bash(npx expo *)",
+      "Bash(npm uninstall *)",
+      "Bash(npm install *)",
+      "Bash(npx expo-doctor *)"
     ]
   }
 }

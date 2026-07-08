@@ -13,6 +13,9 @@ real ni llamadas al backend todavía. Ver el roadmap completo en
 - Node.js 20 o superior.
 - Un teléfono Android físico con la app **Expo Go** instalada
   ([Play Store](https://play.google.com/store/apps/details?id=host.exp.exponent)).
+- El proyecto usa **Expo SDK 54** para ser compatible con las versiones de
+  Expo Go instaladas en los teléfonos del equipo. No actualizar el SDK sin
+  coordinar con todo el equipo.
 - **No necesitas Android Studio ni un emulador.** El desarrollo normal se
   hace con Expo Go en un teléfono real (ideal para laptops con pocos recursos).
 
