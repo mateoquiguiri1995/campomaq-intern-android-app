@@ -84,3 +84,5 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
 });
+
+console.log(process.env.EXPO_PUBLIC_API_BASE_URL);

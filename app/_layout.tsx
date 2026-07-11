@@ -1,22 +1,42 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
+import { AuthProvider, useAuth } from '@/features/auth/AuthProvider';
+
 /**
  * Layout raíz de la app.
  *
- * Flujo actual: login (mock) -> (tabs).
- *
- * TODO(Fase 1): envolver la app en un AuthProvider y redirigir a /login
- *   automáticamente cuando no haya sesión válida (rutas protegidas).
+ * Rutas protegidas con Stack.Protected: qué pantalla se monta depende de
+ * si hay sesión (session) o no. Al iniciar sesión o cerrar sesión, el
+ * AuthProvider actualiza `session` y el Stack cambia de rama solo — no
+ * hace falta navegar manualmente a /login o /(tabs).
  */
 export default function RootLayout() {
   return (
-    <>
+    <AuthProvider>
       <StatusBar style="dark" />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="login" />
+      <RootNavigator />
+    </AuthProvider>
+  );
+}
+
+function RootNavigator() {
+  const { session, isLoading } = useAuth();
+
+  if (isLoading) {
+    // TODO: mostrar aquí LoadingScreen (src/components/common/LoadingScreen.tsx)
+    // en vez de una pantalla en blanco (ver TODO en ese archivo).
+    return null;
+  }
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Protected guard={!!session}>
         <Stack.Screen name="(tabs)" />
-      </Stack>
-    </>
+      </Stack.Protected>
+      <Stack.Protected guard={!session}>
+        <Stack.Screen name="login" />
+      </Stack.Protected>
+    </Stack>
   );
 }

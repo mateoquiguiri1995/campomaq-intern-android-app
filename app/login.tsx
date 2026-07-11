@@ -1,80 +1,129 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
 
+import { Button } from '@/components/common/Button';
+import { TextField } from '@/components/common/TextField';
+import { useAuth } from '@/features/auth/AuthProvider';
 import { colors } from '@/theme/colors';
 import { radius, spacing } from '@/theme/spacing';
 import { typography } from '@/theme/typography';
 
 /**
- * Pantalla de login (versión mínima).
+ * Pantalla de login.
  *
- * TODO(Fase 1): conectar el login al endpoint real del backend usando
- *   authService.login() (src/features/auth/services/authService.ts).
- * TODO(Fase 1): guardar el token con expo-secure-store y crear AuthProvider.
- * TODO(Futuro): habilitar el ingreso con código QR (hoy es solo placeholder).
+ * Único método soportado: usuario/correo + contraseña. authService.loginWithPassword
+ * es mock por ahora (ver authService.ts) pero ya pasa por el AuthProvider real,
+ * así que no hace falta navegar a mano: al guardar la sesión, las rutas
+ * protegidas muestran (tabs) solas.
  */
 export default function LoginScreen() {
+  const { loginWithPassword } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function handleLogin() {
-    // Sin autenticación real en esta fase: navega directo a las pestañas.
-    router.replace('/(tabs)');
+  const canSubmit = email.trim().length > 0 && password.length > 0 && !isSubmitting;
+
+  async function handleSubmit() {
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      await loginWithPassword({ email: email.trim(), password });
+    } catch {
+      setError('No pudimos iniciar sesión. Revisa tus datos e intenta de nuevo.');
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
-        style={styles.container}
+        style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.header}>
-          <Text style={styles.appName}>Campo Maq Ventas</Text>
-          <Text style={styles.portal}>Portal de ventas</Text>
-          <Text style={styles.welcome}>Bienvenido de vuelta, vendedor.</Text>
-        </View>
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.hero}>
+            <Image
+              source={require('@/assets/images/campomaq/campomaq.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+            <Text style={styles.title}>Bienvenido</Text>
+            <Text style={styles.subtitle}>Ingresa tus credenciales para continuar</Text>
+          </View>
 
-        <View style={styles.form}>
-          <TextInput
-            style={styles.input}
-            placeholder="Usuario o correo"
-            placeholderTextColor={colors.gray}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            value={email}
-            onChangeText={setEmail}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Contraseña"
-            placeholderTextColor={colors.gray}
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-          />
+          <View style={styles.card}>
+            <View style={styles.form}>
+              <TextField
+                label="Usuario o correo"
+                placeholder="e-mail@campomaq.ec"
+                autoCapitalize="none"
+                autoComplete="email"
+                keyboardType="email-address"
+                value={email}
+                onChangeText={setEmail}
+                icon={<Ionicons name="mail-outline" size={18} color={colors.gray} />}
+              />
+              <TextField
+                label="Contraseña"
+                placeholder="••••••••"
+                secureTextEntry={!showPassword}
+                autoComplete="password"
+                value={password}
+                onChangeText={setPassword}
+                onSubmitEditing={canSubmit ? handleSubmit : undefined}
+                icon={<Ionicons name="lock-closed-outline" size={18} color={colors.gray} />}
+                rightIcon={
+                  <Pressable
+                    onPress={() => setShowPassword((prev) => !prev)}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  >
+                    <Ionicons
+                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                      size={22}
+                      color={colors.gray}
+                    />
+                  </Pressable>
+                }
+              />
 
-          <Pressable style={styles.loginButton} onPress={handleLogin}>
-            <Text style={styles.loginButtonText}>Iniciar sesión</Text>
-          </Pressable>
+              {error && (
+                <View style={styles.errorBox}>
+                  <Ionicons name="alert-circle-outline" size={16} color={colors.danger} />
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              )}
 
-          <Pressable style={styles.qrButton} disabled>
-            <Text style={styles.qrButtonText}>
-              Ingresar con código QR — Próximamente
-            </Text>
-          </Pressable>
-        </View>
+              <Button
+                label={isSubmitting ? 'Ingresando…' : 'Iniciar sesión'}
+                disabled={!canSubmit}
+                onPress={handleSubmit}
+              />
+            </View>
+          </View>
 
-        <Text style={styles.footer}>v0.1.0 · Quito · Ecuador</Text>
+          <Text style={styles.footer}>v1.0 · Cayambe · Ecuador</Text>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -83,72 +132,72 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.primary,
+  },
+  flex: {
+    flex: 1,
   },
   container: {
-    flex: 1,
-    padding: spacing.lg,
+    flexGrow: 1,
     justifyContent: 'center',
-    gap: spacing.xl,
+    paddingBottom: spacing.lg,
   },
-  header: {
+  hero: {
     alignItems: 'center',
     gap: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.xl + spacing.lg,
   },
-  appName: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: colors.black,
+  logo: {
+    width: 240,
+    height: 240 / 2.605,
+    marginBottom: spacing.sm,
   },
-  portal: {
-    ...typography.subtitle,
-    color: colors.primaryDark,
-    fontWeight: '600',
-  },
-  welcome: {
-    ...typography.body,
-    color: colors.grayDark,
-    marginTop: spacing.sm,
-  },
-  form: {
-    gap: spacing.md,
-  },
-  input: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    ...typography.body,
-    fontSize: 16,
-    color: colors.black,
-  },
-  loginButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-  },
-  loginButtonText: {
-    ...typography.button,
+  title: {
+    ...typography.title,
     color: colors.onPrimary,
   },
-  qrButton: {
-    backgroundColor: colors.grayLight,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    opacity: 0.6,
-  },
-  qrButtonText: {
+  subtitle: {
     ...typography.body,
-    color: colors.grayDark,
-    fontWeight: '500',
+    color: colors.onPrimary,
+    opacity: 0.75,
+    textAlign: 'center',
+  },
+  card: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radius.lg,
+    borderTopRightRadius: radius.lg,
+    marginHorizontal: spacing.md,
+    padding: spacing.lg,
+    gap: spacing.lg,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  form: {
+    gap: spacing.lg,
+  },
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+    backgroundColor: '#FBEAEA',
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+  },
+  errorText: {
+    ...typography.caption,
+    color: colors.danger,
+    flex: 1,
   },
   footer: {
     ...typography.caption,
-    color: colors.gray,
+    color: colors.onPrimary,
+    opacity: 0.7,
     textAlign: 'center',
+    marginTop: spacing.lg,
   },
 });

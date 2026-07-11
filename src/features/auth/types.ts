@@ -6,6 +6,8 @@ export interface User {
   email: string;
   /** Rol del usuario. Por ahora solo hay vendedores. */
   role: 'vendedor';
+  /** URL de la imagen de perfil (opcional) */
+  avatar?: string;
 }
 
 export interface LoginCredentials {

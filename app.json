@@ -33,6 +33,13 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
+      ],
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Campo Maq Ventas necesita acceso a tus fotos para que elijas una imagen de perfil."
+        }
       ]
     ],
     "experiments": {

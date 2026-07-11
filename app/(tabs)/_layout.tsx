@@ -1,11 +1,23 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import { StyleSheet, Text } from 'react-native';
 
 import { colors } from '@/theme/colors';
 
-/** Ícono de pestaña simple con emoji, para no depender de librerías de íconos. */
-function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
-  return <Text style={[styles.icon, !focused && styles.iconInactive]}>{emoji}</Text>;
+/** Ícono de pestaña con Ionicons */
+function TabIcon({ 
+  name, 
+  focused 
+}: { 
+  name: keyof typeof Ionicons.glyphMap; 
+  focused: boolean;
+}) {
+  return (
+    <Ionicons 
+      name={name} 
+      size={24} 
+      color={focused ? colors.primary : colors.gray} 
+    />
+  );
 }
 
 /** Navegación principal por pestañas. */
@@ -14,15 +26,18 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.black,
+        tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.gray,
         tabBarStyle: {
-          backgroundColor: colors.surface,
+          backgroundColor: colors.black,
           borderTopColor: colors.border,
+          height: 75,
+          paddingBottom: 8,
+          paddingTop: 8,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '600',
+          fontSize: 11,
+          fontWeight: '500',
         },
       }}
     >
@@ -30,39 +45,38 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Inicio',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🏠" focused={focused} />,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name={focused ? 'home' : 'home-outline'} focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
         name="catalog"
         options={{
           title: 'Catálogo',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🚜" focused={focused} />,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name={focused ? 'grid' : 'grid-outline'} focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
         name="clients"
         options={{
           title: 'Clientes',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="👥" focused={focused} />,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name={focused ? 'people' : 'people-outline'} focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
         name="reports"
         options={{
           title: 'Reportes',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="📊" focused={focused} />,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name={focused ? 'bar-chart' : 'bar-chart-outline'} focused={focused} />
+          ),
         }}
       />
     </Tabs>
   );
 }
-
-const styles = StyleSheet.create({
-  icon: {
-    fontSize: 20,
-  },
-  iconInactive: {
-    opacity: 0.5,
-  },
-});
