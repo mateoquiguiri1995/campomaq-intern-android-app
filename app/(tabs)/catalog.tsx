@@ -1,88 +1,238 @@
-import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
 import { AppHeader } from '@/components/common/AppHeader';
 import { ScreenContainer } from '@/components/common/ScreenContainer';
+import { BrandSelect } from '@/features/catalog/components/BrandSelect';
 import { CategoryChip } from '@/features/catalog/components/CategoryChip';
-import { ProductCard } from '@/features/catalog/components/ProductCard';
-import { CATEGORIES, getProducts } from '@/features/catalog/services/productService';
+import { ProductList } from '@/features/catalog/components/ProductList';
+import { useCatalog } from '@/features/catalog/hooks/useCatalog';
 import type { Product } from '@/features/catalog/types';
 import { colors } from '@/theme/colors';
 import { radius, spacing } from '@/theme/spacing';
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
-/**
- * Pestaña Catálogo.
- *
- * TODO(Fase 2): conectar al backend API real (productService).
- * TODO(Fase 2): búsqueda real por nombre y código (hoy el input no filtra).
- * TODO(Fase 2): filtrado real por categoría (hoy los chips son solo visuales).
- * TODO(Fase 2): pantalla de detalle de producto.
- * TODO(Fase 2): mostrar precios A/B/C en el detalle.
- */
+/** Pestaña Catálogo. */
 export default function CatalogScreen() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [search, setSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('Todos');
+  const router = useRouter();
 
-  useEffect(() => {
-    // En la Fase 2 esto llamará al backend y necesitará estados de
-    // carga y error. Con mocks, resuelve al instante.
-    getProducts().then(setProducts);
-  }, []);
+  const {
+    products,
+    loading,
+    error,
+    hasProducts,
+
+    search,
+    setSearch,
+
+    categories,
+    selectedCategory,
+    setSelectedCategory,
+
+    brands,
+    selectedBrand,
+    setSelectedBrand,
+
+    hasMore,
+    loadMore,
+
+    hasActiveFilters,
+    resetFilters,
+  } = useCatalog();
+
+  // No hay endpoint GET /products/:id en el backend, así que el
+  // producto viaja completo (ya está en memoria desde la lista).
+  function handleOpenProduct(product: Product) {
+    router.push({
+      pathname: '/product/[id]',
+      params: { id: product.id, data: JSON.stringify(product) },
+    });
+  }
+
+  if (loading) {
+    return (
+      <ScreenContainer>
+        <AppHeader title="Catálogo" subtitle="Productos, precios y stock" />
+
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primaryDark} />
+
+          <Text style={styles.message}>
+            Cargando catálogo...
+          </Text>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
+  if (error) {
+    return (
+      <ScreenContainer>
+        <AppHeader title="Catálogo" subtitle="Productos, precios y stock" />
+
+        <View style={styles.center}>
+          <Text style={styles.errorTitle}>
+            No pudimos cargar el catálogo
+          </Text>
+
+          <Text style={styles.message}>
+            {error}
+          </Text>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
+  // Catálogo realmente vacío (no hay productos en el backend, sin
+  // importar la búsqueda o los filtros).
+  if (!hasProducts) {
+    return (
+      <ScreenContainer>
+        <AppHeader title="Catálogo" subtitle="Productos, precios y stock" />
+
+        <View style={styles.center}>
+          <Text style={styles.message}>
+            No existen productos disponibles.
+          </Text>
+        </View>
+      </ScreenContainer>
+    );
+  }
 
   return (
-    <ScreenContainer>
+    <ScreenContainer scroll={false}>
       <AppHeader title="Catálogo" subtitle="Productos, precios y stock" />
 
-      <TextInput
-        style={styles.searchInput}
-        placeholder="Buscar producto, código..."
-        placeholderTextColor={colors.gray}
-        value={search}
-        onChangeText={setSearch}
-      />
+      <View style={styles.searchRow}>
+        <Ionicons
+          name="search"
+          size={18}
+          color={colors.gray}
+          style={styles.searchIcon}
+        />
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipsRow}
-      >
-        {CATEGORIES.map((category) => (
-          <CategoryChip
-            key={category}
-            label={category}
-            selected={category === selectedCategory}
-            onPress={() => setSelectedCategory(category)}
-          />
-        ))}
-      </ScrollView>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Buscar producto, código..."
+          placeholderTextColor={colors.gray}
+          value={search}
+          onChangeText={setSearch}
+          returnKeyType="search"
+        />
 
-      <View style={styles.list}>
-        {products.map((product) => (
-          <ProductCard key={product.id} product={product} />
-        ))}
+        {search.length > 0 && (
+          <TouchableOpacity
+            style={styles.clearIcon}
+            onPress={() => setSearch('')}
+            hitSlop={8}
+          >
+            <Ionicons name="close-circle" size={18} color={colors.gray} />
+          </TouchableOpacity>
+        )}
       </View>
+
+      <View style={styles.filtersRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipsRow}
+          style={styles.chipsScroll}
+        >
+          {categories.map((category) => (
+            <CategoryChip
+              key={category}
+              label={category}
+              selected={category === selectedCategory}
+              onPress={() => setSelectedCategory(category)}
+            />
+          ))}
+        </ScrollView>
+
+        <BrandSelect
+          brands={brands}
+          selectedBrand={selectedBrand}
+          onSelectBrand={setSelectedBrand}
+        />
+      </View>
+
+      <ProductList
+        products={products}
+        hasMore={hasMore}
+        onLoadMore={loadMore}
+        hasActiveFilters={hasActiveFilters}
+        onClearFilters={resetFilters}
+        onPressProduct={handleOpenProduct}
+      />
     </ScreenContainer>
   );
 }
 
+const shadow = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 1 },
+  shadowOpacity: 0.06,
+  shadowRadius: 3,
+  elevation: 2,
+};
+
 const styles = StyleSheet.create({
+  searchRow: {
+    justifyContent: 'center',
+  },
+  searchIcon: {
+    position: 'absolute',
+    left: spacing.sm + spacing.xs,
+    zIndex: 1,
+  },
   searchInput: {
     backgroundColor: colors.surface,
-    borderRadius: radius.md,
+    borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: spacing.md,
+    paddingLeft: spacing.xl + spacing.xs,
+    paddingRight: spacing.xl,
     paddingVertical: spacing.sm + spacing.xs,
     fontSize: 15,
     color: colors.black,
+    ...shadow,
+  },
+  clearIcon: {
+    position: 'absolute',
+    right: spacing.sm + spacing.xs,
+  },
+  filtersRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  chipsScroll: {
+    flex: 1,
   },
   chipsRow: {
     gap: spacing.sm,
+    paddingRight: spacing.xs,
   },
-  list: {
-    gap: spacing.md,
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  message: {
+    marginTop: spacing.md,
+    textAlign: 'center',
+    color: colors.grayDark,
+  },
+  errorTitle: {
+    fontWeight: '700',
+    fontSize: 18,
+    color: '#D32F2F',
   },
 });
-
-console.log(process.env.EXPO_PUBLIC_API_BASE_URL);
