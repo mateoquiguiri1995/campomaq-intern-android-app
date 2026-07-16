@@ -26,10 +26,29 @@ export interface ApiProduct {
 }
 
 /**
- * Obtiene todos los productos.
+ * El backend devuelve el array de productos plano (sin envolver en
+ * { items, total, ... }) y todavía no soporta `pageSize`: con `page`
+ * aplica una página fija de BACKEND_PRODUCTS_PAGE_SIZE productos; sin
+ * `page`, devuelve el catálogo completo en una sola respuesta.
  */
-export async function getProductsFromApi(): Promise<ApiProduct[]> {
-  return apiGet<ApiProduct[]>('/products');
+export const BACKEND_PRODUCTS_PAGE_SIZE = 20;
+
+export interface GetProductsFromApiParams {
+  page?: number;
+}
+
+/**
+ * Obtiene productos desde el backend.
+ */
+export async function getProductsFromApi(
+  params: GetProductsFromApiParams = {}
+): Promise<ApiProduct[]> {
+  const searchParams = new URLSearchParams();
+
+  if (params.page) searchParams.set('page', String(params.page));
+
+  const query = searchParams.toString();
+  return apiGet<ApiProduct[]>(`/products${query ? `?${query}` : ''}`);
 }
 
 /**

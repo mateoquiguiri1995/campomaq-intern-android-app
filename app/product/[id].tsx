@@ -17,7 +17,13 @@ import { spacing } from '@/theme/spacing';
 export default function ProductDetailScreen() {
   const { data } = useLocalSearchParams<{ id: string; data?: string }>();
 
-  const product: Product | null = data ? JSON.parse(data) : null;
+  let product: Product | null = null;
+
+  try {
+    product = data ? JSON.parse(data) : null;
+  } catch {
+    product = null;
+  }
 
   if (!product) {
     return (

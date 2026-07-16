@@ -1,12 +1,8 @@
-/** Tipos del módulo de autenticación. */
-
 export interface User {
   id: string;
   name: string;
   email: string;
-  /** Rol del usuario. Por ahora solo hay vendedores. */
   role: 'vendedor';
-  /** URL de la imagen de perfil (opcional) */
   avatar?: string;
 }
 
@@ -17,6 +13,5 @@ export interface LoginCredentials {
 
 export interface AuthSession {
   user: User;
-  /** Token JWT del backend. Mock en esta fase. */
-  token: string;
+  token: string; // access_token de Supabase vigente
 }

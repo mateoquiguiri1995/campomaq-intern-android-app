@@ -1,25 +1,41 @@
 import { StyleSheet, Text, View } from 'react-native';
 
+import { Button } from '@/components/common/Button';
 import { colors } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 
+interface LoadingScreenProps {
+  title: string;
+  subtitle?: string;
+  detail?: string;
+  actionLabel?: string;
+  onAction?: () => void;
+}
+
 /**
- * Pantalla de carga inicial (splash) al abrir la app.
- *
- * FASE ACTUAL: placeholder visual únicamente. Todavía NO está conectada
- * a la navegación — `app/_layout.tsx` sigue abriendo directo en /login.
- *
- * TODO: mostrarla al iniciar la app por un máximo de 3s (temporizador, o
- *   hasta que termine una carga real de sesión, lo que ocurra primero) y
- *   luego navegar a /login o /(tabs) según si hay una sesión guardada.
+ * Pantalla de carga reutilizable para validación de sesión y precarga
+ * de datos internos.
  */
-export function LoadingScreen() {
+export function LoadingScreen({
+  title,
+  subtitle,
+  detail,
+  actionLabel,
+  onAction,
+}: LoadingScreenProps) {
   return (
     <View style={styles.container}>
       <View style={styles.brandCircle}>
         <Text style={styles.brandInitials}>CM</Text>
       </View>
-      <Text style={styles.appName}>Campo Maq Ventas</Text>
+      <Text style={styles.appName}>{title}</Text>
+      {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+      {detail ? <Text style={styles.detail}>{detail}</Text> : null}
+      {actionLabel && onAction ? (
+        <View style={styles.action}>
+          <Button label={actionLabel} variant="ghost" onPress={onAction} />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -49,5 +65,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.black,
+  },
+  subtitle: {
+    textAlign: 'center',
+    color: colors.grayDark,
+  },
+  detail: {
+    textAlign: 'center',
+    color: colors.gray,
+  },
+  action: {
+    marginTop: spacing.sm,
   },
 });

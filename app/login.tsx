@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Image,
   KeyboardAvoidingView,
@@ -29,6 +29,7 @@ import { typography } from '@/theme/typography';
  */
 export default function LoginScreen() {
   const { loginWithPassword } = useAuth();
+  const scrollRef = useRef<ScrollView>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -42,8 +43,9 @@ export default function LoginScreen() {
     setIsSubmitting(true);
     try {
       await loginWithPassword({ email: email.trim(), password });
-    } catch {
-      setError('No pudimos iniciar sesión. Revisa tus datos e intenta de nuevo.');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'No pudimos iniciar sesión. Revisa tus datos e intenta de nuevo.';
+      setError(msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -53,9 +55,10 @@ export default function LoginScreen() {
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={styles.container}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -84,11 +87,13 @@ export default function LoginScreen() {
               />
               <TextField
                 label="Contraseña"
-                placeholder="••••••••"
+                placeholder="0000"
                 secureTextEntry={!showPassword}
                 autoComplete="password"
+                keyboardType="default"
                 value={password}
                 onChangeText={setPassword}
+                onFocus={() => scrollRef.current?.scrollToEnd({ animated: true })}
                 onSubmitEditing={canSubmit ? handleSubmit : undefined}
                 icon={<Ionicons name="lock-closed-outline" size={18} color={colors.gray} />}
                 rightIcon={
