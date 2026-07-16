@@ -1,27 +1,50 @@
 /** Tipos del módulo de catálogo. */
 
-export type ProductCategory =
-  | 'Cultivadores'
-  | 'Motosierras'
-  | 'Bombas'
-  | 'Repuestos';
+export type ProductCategory = string;
 
 export interface Product {
   id: string;
-  /** Código interno del producto (ej. "CM-1042"). */
+
   code: string;
+
   name: string;
+
   category: ProductCategory;
+
   brand: string;
-  /** Precio principal que se muestra en el catálogo. */
+
+  brandLogo?: string;
+
   mainPrice: number;
-  /** Lista de precios A/B/C que maneja Campo Maq. */
+
   priceA: number;
+
   priceB: number;
+
   priceC: number;
-  /** Margen en porcentaje (ej. 18 = 18%). Puede no venir del backend. */
+
   marginPct?: number;
-  /** Stock disponible. En el backend se actualiza cada 10 minutos. */
+
   stockQty: number;
+
   imageUrl?: string;
+
+  /**
+   * Todas las imágenes disponibles.
+   */
+  images?: string[];
+
+  /**
+   * HTML que contiene la ficha técnica.
+   */
+  description?: string;
+
+  /**
+   * Producto nuevo.
+   */
+  isNew?: boolean;
+
+  createdAt?: string;
+
+  updatedAt?: string;
 }

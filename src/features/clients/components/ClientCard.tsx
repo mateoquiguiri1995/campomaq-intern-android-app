@@ -12,14 +12,16 @@ interface ClientCardProps {
 /**
  * Tarjeta de cliente.
  *
- * TODO(Fase 3): al tocar la tarjeta, navegar al detalle del cliente
+ * TODO: al tocar la tarjeta, navegar al detalle del cliente
  *   (historial de compras, acciones de contacto, "Nueva cotización").
  */
 export function ClientCard({ client }: ClientCardProps) {
+  const contactLine = [client.email, client.phone].filter(Boolean).join(' · ');
+
   return (
     <View style={styles.card}>
       <Text style={styles.name}>{client.name}</Text>
-      <Text style={styles.contact}>{client.contactPerson}</Text>
+      {contactLine ? <Text style={styles.contact}>{contactLine}</Text> : null}
       <View style={styles.footerRow}>
         <Text style={styles.ruc}>RUC/CI: {client.ruc}</Text>
         {client.location ? <Text style={styles.location}>{client.location}</Text> : null}

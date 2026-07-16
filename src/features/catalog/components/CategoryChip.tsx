@@ -25,7 +25,7 @@ export function CategoryChip({ label, selected, onPress }: CategoryChipProps) {
 const styles = StyleSheet.create({
   chip: {
     borderRadius: radius.pill,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm + spacing.xs,
     paddingVertical: spacing.sm,
     backgroundColor: colors.surface,
     borderWidth: 1,
@@ -37,6 +37,7 @@ const styles = StyleSheet.create({
   },
   label: {
     ...typography.body,
+    fontSize: 13,
     color: colors.grayDark,
     fontWeight: '500',
   },

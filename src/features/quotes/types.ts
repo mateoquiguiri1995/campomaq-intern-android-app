@@ -1,6 +1,5 @@
-/** Tipos del módulo de cotizaciones / proformas. */
-
 import type { Product } from '../catalog/types';
+import type { Client } from '../clients/types';
 
 /** Qué lista de precios se aplica a una línea de la cotización. */
 export type PriceTier = 'A' | 'B' | 'C';
@@ -9,14 +8,36 @@ export interface QuoteItem {
   product: Product;
   quantity: number;
   priceTier: PriceTier;
-  /** Descuento opcional en porcentaje. */
+  /** Descuento opcional en porcentaje (0-100). */
   discountPct?: number;
 }
 
+/**
+ * Datos mínimos de un cliente escrito a mano solo para esta cotización.
+ * Vive únicamente dentro del documento local: nunca se sube al backend.
+ */
+export interface ManualClientInfo {
+  name: string;
+  /** Teléfono o correo, lo que el vendedor tenga a mano. */
+  contact: string;
+}
+
+/**
+ * El cliente de una cotización viene de la cartera (mock/API) o se escribe
+ * a mano para este documento puntual. El caso "manual" jamás debe
+ * confundirse con un cliente real de la base de datos.
+ */
+export type QuoteClient =
+  | { kind: 'registered'; client: Client }
+  | { kind: 'manual'; client: ManualClientInfo };
+
+export type QuoteStatus = 'draft' | 'generated';
+
 export interface Quote {
   id: string;
-  clientId: string;
+  client: QuoteClient;
   items: QuoteItem[];
+  status: QuoteStatus;
   createdAt: string;
-  // TODO(Fase 4): subtotal, IVA y total se calcularán localmente.
+  updatedAt: string;
 }

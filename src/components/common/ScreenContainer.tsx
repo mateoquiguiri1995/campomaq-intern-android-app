@@ -1,15 +1,30 @@
 import type { PropsWithChildren } from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 
-/**
- * Contenedor base de todas las pantallas: fondo gris claro,
- * safe area y scroll vertical.
- */
-export function ScreenContainer({ children }: PropsWithChildren) {
+interface ScreenContainerProps extends PropsWithChildren {
+  /**
+   * Si es true (por defecto) envuelve el contenido en ScrollView.
+   * Si es false solamente crea el SafeArea.
+   */
+  scroll?: boolean;
+}
+
+export function ScreenContainer({
+  children,
+  scroll = true,
+}: ScreenContainerProps) {
+  if (!scroll) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <View style={styles.nonScrollContent}>{children}</View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView
@@ -27,7 +42,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+
   content: {
+    flexGrow: 1,
+    padding: spacing.md,
+    gap: spacing.md,
+  },
+
+  nonScrollContent: {
+    flex: 1,
     padding: spacing.md,
     gap: spacing.md,
   },
