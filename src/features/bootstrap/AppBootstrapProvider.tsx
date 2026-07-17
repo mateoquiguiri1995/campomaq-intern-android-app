@@ -18,6 +18,7 @@ interface AppBootstrapContextValue {
   allProducts: Product[] | null;
   isLoadingAllProducts: boolean;
   isLoading: boolean;
+  progress: number;
   error: string | null;
   reload: () => void;
 }
@@ -34,6 +35,7 @@ export function AppBootstrapProvider({ children }: PropsWithChildren) {
   const [allProducts, setAllProducts] = useState<Product[] | null>(null);
   const [isLoadingAllProducts, setIsLoadingAllProducts] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [reloadIndex, setReloadIndex] = useState(0);
 
@@ -52,6 +54,7 @@ export function AppBootstrapProvider({ children }: PropsWithChildren) {
       setAllProducts(null);
       setError(null);
       setIsLoading(false);
+      setProgress(0);
       return () => {
         isMounted = false;
       };
@@ -60,28 +63,54 @@ export function AppBootstrapProvider({ children }: PropsWithChildren) {
     setIsLoading(true);
     setError(null);
     setAllProducts(null);
+    setProgress(10); // Empezamos en 10%
 
-    Promise.all([
-      getProducts({ page: 1 }),
-      getClients({ page: 1, pageSize: CLIENTS_PRELOAD_PAGE_SIZE }),
-    ])
-      .then(([loadedProducts, loadedClients]) => {
+    let productsDone = false;
+    let clientsDone = false;
+    let hasFailed = false;
+
+    const checkComplete = () => {
+      if (!isMounted || hasFailed) return;
+      if (productsDone && clientsDone) {
+        setProgress(100);
+        setIsLoading(false);
+      } else if (productsDone || clientsDone) {
+        setProgress(60); // Uno completado
+      }
+    };
+
+    getProducts({ page: 1 })
+      .then((loadedProducts) => {
         if (!isMounted) return;
         setProducts(loadedProducts.products);
         setProductsHasMore(loadedProducts.hasMore);
-        setClients(loadedClients.clients);
-        setClientsTotal(loadedClients.total ?? loadedClients.clients.length);
+        productsDone = true;
+        checkComplete();
       })
       .catch((err) => {
         if (!isMounted) return;
+        hasFailed = true;
         setProducts([]);
         setProductsHasMore(false);
+        setError(err instanceof Error ? err.message : 'No fue posible preparar los datos de la app.');
+        setIsLoading(false);
+      });
+
+    getClients({ page: 1, pageSize: CLIENTS_PRELOAD_PAGE_SIZE })
+      .then((loadedClients) => {
+        if (!isMounted) return;
+        setClients(loadedClients.clients);
+        setClientsTotal(loadedClients.total ?? loadedClients.clients.length);
+        clientsDone = true;
+        checkComplete();
+      })
+      .catch((err) => {
+        if (!isMounted) return;
+        hasFailed = true;
         setClients([]);
         setClientsTotal(0);
         setError(err instanceof Error ? err.message : 'No fue posible preparar los datos de la app.');
-      })
-      .finally(() => {
-        if (isMounted) setIsLoading(false);
+        setIsLoading(false);
       });
 
     return () => {
@@ -129,10 +158,11 @@ export function AppBootstrapProvider({ children }: PropsWithChildren) {
       allProducts,
       isLoadingAllProducts,
       isLoading,
+      progress,
       error,
       reload,
     }),
-    [products, productsHasMore, clients, clientsTotal, allProducts, isLoadingAllProducts, isLoading, error, reload]
+    [products, productsHasMore, clients, clientsTotal, allProducts, isLoadingAllProducts, isLoading, progress, error, reload]
   );
 
   return <AppBootstrapContext.Provider value={value}>{children}</AppBootstrapContext.Provider>;

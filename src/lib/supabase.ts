@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import * as SecureStore from 'expo-secure-store';
+import * as secureStore from '@/utils/secureStore';
 import { AppState } from 'react-native';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -10,9 +10,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 const SecureStoreAdapter = {
-  getItem: (key: string) => SecureStore.getItemAsync(key),
-  setItem: (key: string, value: string) => SecureStore.setItemAsync(key, value),
-  removeItem: (key: string) => SecureStore.deleteItemAsync(key),
+  getItem: (key: string) => secureStore.getItemAsync(key),
+  setItem: (key: string, value: string) => secureStore.setItemAsync(key, value),
+  removeItem: (key: string) => secureStore.deleteItemAsync(key),
 };
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
