@@ -50,7 +50,7 @@ export function BrandSelect({
       >
         <Ionicons
           name="pricetags-outline"
-          size={15}
+          size={10}
           color={isFiltered ? colors.onPrimary : colors.grayDark}
         />
 

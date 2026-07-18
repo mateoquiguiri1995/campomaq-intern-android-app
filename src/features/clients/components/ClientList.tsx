@@ -1,4 +1,4 @@
-import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { colors } from '@/theme/colors';
 import { radius, spacing } from '@/theme/spacing';
@@ -15,6 +15,8 @@ interface ClientListProps {
   hasActiveFilters?: boolean;
   onClearFilters?: () => void;
   onPressClient?: (client: Client) => void;
+  /** Búsqueda en curso: evita mostrar "sin resultados" mientras aún no llega la respuesta. */
+  searching?: boolean;
 }
 
 export function ClientList({
@@ -25,6 +27,7 @@ export function ClientList({
   hasActiveFilters,
   onClearFilters,
   onPressClient,
+  searching,
 }: ClientListProps) {
   return (
     <FlatList
@@ -46,19 +49,26 @@ export function ClientList({
         loadingMore ? <Text style={styles.footer}>Cargando más clientes...</Text> : null
       }
       ListEmptyComponent={
-        <View style={styles.empty}>
-          <Text style={styles.emptyText}>
-            {hasActiveFilters
-              ? 'No encontramos clientes con esa búsqueda.'
-              : 'No se encontraron clientes.'}
-          </Text>
+        searching ? (
+          <View style={styles.empty}>
+            <ActivityIndicator color={colors.primaryDark} />
+            <Text style={styles.emptyText}>Buscando clientes...</Text>
+          </View>
+        ) : (
+          <View style={styles.empty}>
+            <Text style={styles.emptyText}>
+              {hasActiveFilters
+                ? 'No encontramos clientes con esa búsqueda.'
+                : 'No se encontraron clientes.'}
+            </Text>
 
-          {hasActiveFilters && onClearFilters && (
-            <TouchableOpacity style={styles.clearButton} activeOpacity={0.7} onPress={onClearFilters}>
-              <Text style={styles.clearButtonText}>Limpiar búsqueda</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+            {hasActiveFilters && onClearFilters && (
+              <TouchableOpacity style={styles.clearButton} activeOpacity={0.7} onPress={onClearFilters}>
+                <Text style={styles.clearButtonText}>Limpiar búsqueda</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )
       }
       showsVerticalScrollIndicator={false}
     />

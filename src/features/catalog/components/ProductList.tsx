@@ -1,4 +1,5 @@
 import {
+  ActivityIndicator,
   FlatList,
   StyleSheet,
   Text,
@@ -26,6 +27,9 @@ interface ProductListProps {
   onClearFilters?: () => void;
 
   onPressProduct?: (product: Product) => void;
+
+  /** Búsqueda en curso: evita mostrar "sin resultados" mientras aún no llega la respuesta. */
+  searching?: boolean;
 }
 
 export function ProductList({
@@ -35,6 +39,7 @@ export function ProductList({
   hasActiveFilters,
   onClearFilters,
   onPressProduct,
+  searching,
 }: ProductListProps) {
   return (
     <FlatList
@@ -72,25 +77,35 @@ export function ProductList({
       }
 
       ListEmptyComponent={
-        <View style={styles.empty}>
-          <Text style={styles.emptyText}>
-            {hasActiveFilters
-              ? 'No encontramos productos con esa búsqueda o filtro.'
-              : 'No se encontraron productos.'}
-          </Text>
+        searching ? (
+          <View style={styles.empty}>
+            <ActivityIndicator color={colors.primaryDark} />
 
-          {hasActiveFilters && onClearFilters && (
-            <TouchableOpacity
-              style={styles.clearButton}
-              activeOpacity={0.7}
-              onPress={onClearFilters}
-            >
-              <Text style={styles.clearButtonText}>
-                Limpiar búsqueda y filtros
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
+            <Text style={styles.emptyText}>
+              Buscando productos...
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.empty}>
+            <Text style={styles.emptyText}>
+              {hasActiveFilters
+                ? 'No encontramos productos con esa búsqueda o filtro.'
+                : 'No se encontraron productos.'}
+            </Text>
+
+            {hasActiveFilters && onClearFilters && (
+              <TouchableOpacity
+                style={styles.clearButton}
+                activeOpacity={0.7}
+                onPress={onClearFilters}
+              >
+                <Text style={styles.clearButtonText}>
+                  Limpiar búsqueda y filtros
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )
       }
 
       showsVerticalScrollIndicator={false}

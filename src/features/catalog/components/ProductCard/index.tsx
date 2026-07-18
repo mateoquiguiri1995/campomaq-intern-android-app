@@ -24,7 +24,11 @@ export function ProductCard({
       onPress={() => onPressDetails?.(product)}
     >
       <View style={styles.content}>
-        <ProductImage imageUrl={product.imageUrl} />
+        <ProductImage
+          code={product.code}
+          imageUrl={product.imageUrl}
+          isNew={product.isNew}
+        />
 
         <View style={styles.rightColumn}>
           <ProductInfo product={product} />
@@ -48,7 +52,7 @@ const styles = StyleSheet.create({
 
     borderColor: colors.border,
 
-    padding: spacing.md,
+    padding: spacing.sm,
   },
 
   cardPressed: {
@@ -60,7 +64,7 @@ const styles = StyleSheet.create({
 
     alignItems: 'flex-start',
 
-    gap: spacing.md,
+    gap: spacing.sm,
   },
 
   rightColumn: {
@@ -68,6 +72,6 @@ const styles = StyleSheet.create({
 
     justifyContent: 'space-between',
 
-    minHeight: 112,
+    alignSelf: 'stretch',
   },
 });

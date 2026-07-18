@@ -1,12 +1,13 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/common/Button';
 import { ScreenContainer } from '@/components/common/ScreenContainer';
 import { TextField } from '@/components/common/TextField';
-import { useAppBootstrap } from '@/features/bootstrap/AppBootstrapProvider';
 import { ClientCard } from '@/features/clients/components/ClientCard';
+import { useClients } from '@/features/clients/hooks/useClients';
 import type { Client } from '@/features/clients/types';
 import { useQuoteBuilder } from '@/features/quotes/QuoteBuilderProvider';
 import { colors } from '@/theme/colors';
@@ -17,25 +18,24 @@ import { typography } from '@/theme/typography';
 export default function SelectClientScreen() {
   const router = useRouter();
   const { setClient } = useQuoteBuilder();
-  const { clients: bootClients, isLoading, error, reload } = useAppBootstrap();
 
-  const [search, setSearch] = useState('');
+  const {
+    clients: filteredClients,
+    loading: isLoading,
+    searchLoading,
+    loadingMore,
+    error,
+    hasMore,
+    hasActiveFilters,
+    search,
+    setSearch,
+    loadMore,
+    refresh,
+  } = useClients();
+
   const [showManualForm, setShowManualForm] = useState(false);
   const [manualName, setManualName] = useState('');
   const [manualContact, setManualContact] = useState('');
-
-  const filteredClients = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    if (!query) return bootClients;
-
-    return bootClients.filter(
-      (client) =>
-        client.name.toLowerCase().includes(query) ||
-        client.ruc.toLowerCase().includes(query) ||
-        (client.email ?? '').toLowerCase().includes(query) ||
-        (client.phone ?? '').toLowerCase().includes(query)
-    );
-  }, [bootClients, search]);
 
   function handleSelectRegistered(client: Client) {
     setClient({ kind: 'registered', client });
@@ -52,15 +52,22 @@ export default function SelectClientScreen() {
     <ScreenContainer>
       <Stack.Screen options={{ title: 'Elegir cliente', headerBackTitle: 'Reportes' }} />
 
-      <TextInput
-        style={styles.searchInput}
-        placeholder="Buscar cliente..."
-        placeholderTextColor={colors.gray}
-        value={search}
-        onChangeText={setSearch}
-      />
+      <View style={styles.searchRow}>
+        {searchLoading ? (
+          <ActivityIndicator size="small" color={colors.gray} style={styles.searchIcon} />
+        ) : (
+          <Ionicons name="search" size={18} color={colors.gray} style={styles.searchIcon} />
+        )}
 
-      <Text style={styles.helperText}>Mostrando los clientes precargados al iniciar la app.</Text>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Buscar cliente..."
+          placeholderTextColor={colors.gray}
+          value={search}
+          onChangeText={setSearch}
+          returnKeyType="search"
+        />
+      </View>
 
       {isLoading && (
         <View style={styles.center}>
@@ -71,7 +78,7 @@ export default function SelectClientScreen() {
       {error && !isLoading && (
         <View style={styles.center}>
           <Text style={styles.errorText}>{error}</Text>
-          <Button label="Reintentar" variant="ghost" onPress={reload} />
+          <Button label="Reintentar" variant="ghost" onPress={refresh} />
         </View>
       )}
 
@@ -104,13 +111,33 @@ export default function SelectClientScreen() {
       {!isLoading && !error && (
         <View style={styles.list}>
           {filteredClients.length === 0 ? (
-            <Text style={styles.emptyText}>No encontramos clientes con esa búsqueda.</Text>
+            searchLoading ? (
+              <View style={styles.center}>
+                <ActivityIndicator color={colors.primaryDark} />
+                <Text style={styles.helperText}>Buscando clientes...</Text>
+              </View>
+            ) : (
+              <Text style={styles.emptyText}>
+                {hasActiveFilters
+                  ? 'No encontramos clientes con esa búsqueda.'
+                  : 'No existen clientes disponibles.'}
+              </Text>
+            )
           ) : (
             filteredClients.map((client) => (
               <Pressable key={client.id} onPress={() => handleSelectRegistered(client)}>
                 <ClientCard client={client} />
               </Pressable>
             ))
+          )}
+
+          {!hasActiveFilters && hasMore && (
+            <Button
+              label={loadingMore ? 'Cargando...' : 'Cargar más clientes'}
+              variant="ghost"
+              onPress={loadMore}
+              disabled={loadingMore}
+            />
           )}
         </View>
       )}
@@ -119,12 +146,21 @@ export default function SelectClientScreen() {
 }
 
 const styles = StyleSheet.create({
+  searchRow: {
+    justifyContent: 'center',
+  },
+  searchIcon: {
+    position: 'absolute',
+    left: spacing.sm + spacing.xs,
+    zIndex: 1,
+  },
   searchInput: {
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: spacing.md,
+    paddingLeft: spacing.xl + spacing.xs,
+    paddingRight: spacing.md,
     paddingVertical: spacing.sm + spacing.xs,
     fontSize: 15,
     color: colors.black,
