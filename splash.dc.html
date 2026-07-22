@@ -1,0 +1,172 @@
+<x-dc>
+  <helmet>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+      @keyframes wave {
+        0%, 100% { transform: rotate(0deg); }
+        12% { transform: rotate(16deg); }
+        24% { transform: rotate(-8deg); }
+        36% { transform: rotate(14deg); }
+        48% { transform: rotate(-4deg); }
+        60% { transform: rotate(0deg); }
+      }
+    </style>
+  </helmet>
+
+  <template>
+    <!-- Canvas wrapper (420 x 770 px) -->
+    <div style="width: 420px; height: 770px; background-color: #e9e7e2; display: flex; justify-content: center; align-items: center; padding: 40px; box-sizing: border-box; font-family: 'Manrope', system-ui, -apple-system, sans-serif;">
+      
+      <!-- Phone body mockup (330 x 690 px) -->
+      <div style="width: 330px; height: 690px; background-color: #0b0b0c; border-radius: 52px; padding: 11px; box-sizing: border-box; position: relative; box-shadow: 0 30px 70px rgba(0,0,0,.35), 0 4px 14px rgba(0,0,0,.25); display: flex; flex-direction: column;">
+        
+        <!-- Notch superior centrado -->
+        <div style="position: absolute; top: 11px; left: 50%; transform: translateX(-50%); width: 120px; height: 26px; background-color: #0b0b0c; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; z-index: 100; display: flex; justify-content: center; align-items: center; overflow: hidden;">
+          <!-- Camera dot -->
+          <div style="width: 7px; height: 7px; background-color: #1c1c22; border-radius: 50%;"></div>
+        </div>
+
+        <!-- Pantalla interior (308 x 668 px) -->
+        <div style="width: 100%; height: 100%; border-radius: 42px; overflow: hidden; background-color: #ffffff; display: flex; flex-direction: column; position: relative;">
+          
+          <!-- 1. Cabecera (flex:none) -->
+          <div style="position: relative; flex: none; background-color: #f2c800; padding: 52px 28px 34px; display: flex; flex-direction: column; z-index: 2;">
+            <!-- Etiqueta pequeña -->
+            <div style="font-size: 11px; font-weight: 700; letter-spacing: 3px; color: #8a7100; text-transform: uppercase; margin-bottom: 6px;">PANEL DE VENTAS</div>
+            
+            <!-- Título dinámico -->
+            <div style="font-size: 28px; font-weight: 800; color: #141414; letter-spacing: -0.5px; line-height: 1.2; display: flex; flex-direction: row; align-items: center; flex-wrap: wrap;">
+              <span>Hola, {{ sellerName }}</span>
+              <span style="display: inline-block; transform-origin: 70% 70%; animation: wave 2.4s ease-in-out infinite; margin-left: 6px;">👋</span>
+            </div>
+            
+            <!-- Borde inferior diagonal (banda blanca) -->
+            <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 26px; background-color: #ffffff; clip-path: polygon(0 100%, 100% 0, 100% 100%);"></div>
+          </div>
+
+          <!-- 2. Imagen (flex:1) -->
+          <div style="flex: 1; position: relative; overflow: hidden; background-color: #f5f5f7; margin-top: -26px; z-index: 1;">
+            <img src="assets/images/tienda.png" style="width: 100%; height: 100%; object-fit: cover; object-position: center 28%; display: block;">
+            
+            <!-- Corte diagonal inferior en blanco -->
+            <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 30px; background-color: #ffffff; clip-path: polygon(0 0, 0 100%, 100% 100%); z-index: 2;"></div>
+          </div>
+
+          <!-- 3. Pie / barra de progreso (flex:none) -->
+          <div style="position: relative; flex: none; background-color: #ffffff; padding: 14px 28px 32px; display: flex; flex-direction: column; z-index: 3;">
+            
+            <!-- Fila superior: logo y porcentaje -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; width: 100%;">
+              <img src="assets/images/campomaq.png" style="width: 132px; height: auto; display: block; object-fit: contain;">
+              <div style="font-size: 32px; font-weight: 800; color: #17181a; display: flex; align-items: baseline; line-height: 1;">
+                <span>{{ pct }}</span><span style="font-size: 16px; color: #c99f00; font-weight: 800; margin-left: 1px;">%</span>
+              </div>
+            </div>
+
+            <!-- Barra segmentada -->
+            <div style="display: flex; flex-direction: row; gap: 4px; height: 12px; margin-bottom: 16px; width: 100%;">
+              <sc-for list="{{ ticks }}" as="tick">
+                <div style="flex: 1; height: 12px; border-radius: 3px; background-color: {{ tick }};"></div>
+              </sc-for>
+            </div>
+
+            <!-- Fila inferior: mensaje de estado y garantía -->
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%; gap: 12px;">
+              <div style="font-size: 13.5px; font-weight: 600; color: #4a4b4d; flex: 1; min-width: 0; line-height: 1.3;">
+                {{ message }}
+              </div>
+              <div style="font-size: 9.5px; font-weight: 600; letter-spacing: 2px; color: #bcb489; width: 130px; text-align: right; text-transform: uppercase; line-height: 1.3;">
+                GARANTIZAMOS NUESTRO SERVICIO
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  </template>
+
+  <script data-dc-script>
+    class Component extends DCLogic {
+      constructor() {
+        super();
+        this.state = {
+          progress: 0,
+          sellerName: "Vendedor"
+        };
+        this.intervalId = null;
+      }
+
+      componentDidMount() {
+        // En este prototipo definimos el nombre por defecto
+        this.state.sellerName = "Vendedor X";
+
+        this.intervalId = setInterval(() => {
+          const current = this.state.progress;
+          if (current >= 100) {
+            clearInterval(this.intervalId);
+            return;
+          }
+
+          let increment = 0;
+          if (current < 70) {
+            // Arranca rápido
+            increment = Math.random() * 4 + 1.5;
+          } else {
+            // Desacelera al final
+            increment = Math.random() * 2 + 0.6;
+          }
+
+          const nextProgress = Math.min(100, current + increment);
+          this.setState({ progress: nextProgress });
+        }, 130);
+      }
+
+      componentWillUnmount() {
+        if (this.intervalId) {
+          clearInterval(this.intervalId);
+        }
+      }
+
+      renderVals() {
+        const p = this.state.progress;
+        const pct = Math.round(p);
+
+        let message = "";
+        if (pct < 26) {
+          message = "Inicializando Campomaq";
+        } else if (pct <= 51) {
+          message = "Cargando inventario";
+        } else if (pct <= 77) {
+          message = "Sincronizando ventas";
+        } else if (pct <= 99) {
+          message = "Ya casi terminamos";
+        } else {
+          message = "¡Todo listo!";
+        }
+
+        const activeTicksCount = Math.round((p / 100) * 20);
+        const ticks = [];
+        for (let i = 0; i < 20; i++) {
+          if (i < activeTicksCount) {
+            ticks.push("#f2c800"); // Amarillo (completado)
+          } else {
+            ticks.push("#ececec"); // Gris claro (restante)
+          }
+        }
+
+        return {
+          pct: pct,
+          message: message,
+          ticks: ticks,
+          sellerName: this.state.sellerName
+        };
+      }
+    }
+  </script>
+</x-dc>

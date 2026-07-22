@@ -1,6 +1,6 @@
 import { ApiError, apiGet } from '@/api/client';
 import { supabase } from '@/lib/supabase';
-import * as SecureStore from 'expo-secure-store';
+import * as secureStore from '@/utils/secureStore';
 import { createContext, useContext, useEffect, useState, type PropsWithChildren } from 'react';
 import * as authService from './services/authService';
 import type { AuthSession, LoginCredentials } from './types';
@@ -131,7 +131,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   async function loadProfile(accessToken: string) {
     try {
       const me = await apiGet<MeResponse>('/auth/me');
-      const avatarOverride = await SecureStore.getItemAsync(AVATAR_OVERRIDE_KEY);
+      const avatarOverride = await secureStore.getItemAsync(AVATAR_OVERRIDE_KEY);
 
       setSession({
         user: {
@@ -168,10 +168,19 @@ export function AuthProvider({ children }: PropsWithChildren) {
         return;
       }
 
-      // Credenciales ya válidas para Supabase: se marca hasSession de una
-      // vez (dispara la precarga de productos/clientes en paralelo) y se
-      // vuelve a poner isLoading en true para que se muestre la pantalla de
-      // carga mientras /auth/me arma el perfil completo.
+      // Credenciales ya válidas para Supabase: establecemos una sesión preliminar
+      // rápida con los datos de Supabase Auth (como el email) para que la pantalla
+      // de carga pueda mostrar el nombre del vendedor desde el 0%.
+      setSession({
+        user: {
+          id: newSession.user.id,
+          name: '',
+          email: newSession.user.email ?? '',
+          role: 'vendedor',
+        },
+        token: newSession.access_token,
+      });
+
       setHasSession(true);
       setIsLoading(true);
       await loadProfile(newSession.access_token);
@@ -194,7 +203,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   async function updateAvatar(uri: string) {
     if (!session) return;
-    await SecureStore.setItemAsync(AVATAR_OVERRIDE_KEY, uri);
+    await secureStore.setItemAsync(AVATAR_OVERRIDE_KEY, uri);
     setSession({ ...session, user: { ...session.user, avatar: uri } });
   }
 

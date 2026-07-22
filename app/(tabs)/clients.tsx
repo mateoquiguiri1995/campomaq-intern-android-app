@@ -13,6 +13,7 @@ export default function ClientsScreen() {
   const {
     clients,
     loading,
+    searchLoading,
     loadingMore,
     error,
     hasClients,
@@ -54,7 +55,11 @@ export default function ClientsScreen() {
       <AppHeader title="Clientes" subtitle="Cartera de clientes" />
 
       <View style={styles.searchRow}>
-        <Ionicons name="search" size={18} color={colors.gray} style={styles.searchIcon} />
+        {searchLoading ? (
+          <ActivityIndicator size="small" color={colors.gray} style={styles.searchIcon} />
+        ) : (
+          <Ionicons name="search" size={18} color={colors.gray} style={styles.searchIcon} />
+        )}
 
         <TextInput
           style={styles.searchInput}
@@ -84,6 +89,7 @@ export default function ClientsScreen() {
           onLoadMore={loadMore}
           hasActiveFilters={hasActiveFilters}
           onClearFilters={() => setSearch('')}
+          searching={searchLoading}
         />
       )}
     </ScreenContainer>

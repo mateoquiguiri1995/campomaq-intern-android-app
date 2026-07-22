@@ -27,6 +27,7 @@ export default function CatalogScreen() {
   const {
     products,
     loading,
+    searchLoading,
     error,
     hasProducts,
 
@@ -112,12 +113,20 @@ export default function CatalogScreen() {
       <AppHeader title="Catálogo" subtitle="Productos, precios y stock" />
 
       <View style={styles.searchRow}>
-        <Ionicons
-          name="search"
-          size={18}
-          color={colors.gray}
-          style={styles.searchIcon}
-        />
+        {searchLoading ? (
+          <ActivityIndicator
+            size="small"
+            color={colors.gray}
+            style={styles.searchIcon}
+          />
+        ) : (
+          <Ionicons
+            name="search"
+            size={18}
+            color={colors.gray}
+            style={styles.searchIcon}
+          />
+        )}
 
         <TextInput
           style={styles.searchInput}
@@ -170,6 +179,7 @@ export default function CatalogScreen() {
         hasActiveFilters={hasActiveFilters}
         onClearFilters={resetFilters}
         onPressProduct={handleOpenProduct}
+        searching={searchLoading}
       />
     </ScreenContainer>
   );

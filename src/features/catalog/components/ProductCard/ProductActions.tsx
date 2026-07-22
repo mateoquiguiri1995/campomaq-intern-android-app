@@ -8,7 +8,6 @@ import {
 
 import { colors } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
-import { typography } from '@/theme/typography';
 
 interface ProductActionsProps {
   onPress: () => void;
@@ -26,7 +25,7 @@ export function ProductActions({
       >
         <Ionicons
           name="eye-outline"
-          size={18}
+          size={14}
           color={colors.primaryDark}
         />
 
@@ -36,7 +35,7 @@ export function ProductActions({
 
         <Ionicons
           name="chevron-forward"
-          size={16}
+          size={12}
           color={colors.primaryDark}
         />
       </TouchableOpacity>
@@ -46,9 +45,9 @@ export function ProductActions({
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
 
-    paddingTop: spacing.sm,
+    paddingTop: spacing.xs,
 
     borderTopWidth: 1,
 
@@ -62,11 +61,11 @@ const styles = StyleSheet.create({
 
     justifyContent: 'flex-end',
 
-    gap: spacing.xs,
+    gap: 4,
   },
 
   text: {
-    ...typography.body,
+    fontSize: 12,
 
     color: colors.primaryDark,
 

@@ -23,6 +23,7 @@ export default function SelectProductsScreen() {
   const {
     products,
     loading,
+    searchLoading,
     search,
     setSearch,
     hasMore,
@@ -62,6 +63,7 @@ export default function SelectProductsScreen() {
           hasActiveFilters={hasActiveFilters}
           onClearFilters={resetFilters}
           onPressProduct={setPickerProduct}
+          searching={searchLoading}
         />
       )}
 

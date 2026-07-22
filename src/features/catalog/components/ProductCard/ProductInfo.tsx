@@ -22,22 +22,6 @@ export function ProductInfo({
   return (
     <View style={styles.container}>
 
-      <View style={styles.header}>
-
-        <Text style={styles.code}>
-          {product.code}
-        </Text>
-
-        {product.isNew && (
-          <Badge
-            label="Nuevo"
-            backgroundColor={colors.primary}
-            textColor={colors.black}
-          />
-        )}
-
-      </View>
-
       <Text
         numberOfLines={2}
         style={styles.name}
@@ -65,24 +49,31 @@ export function ProductInfo({
 
       </View>
 
-      <Text style={styles.category}>
+      <Text
+        numberOfLines={1}
+        style={styles.category}
+      >
         {product.category}
       </Text>
 
-      <Badge
-        label="Stock pendiente"
-        backgroundColor={colors.warning}
-      />
+      <View style={styles.priceRow}>
 
-      <View style={styles.priceContainer}>
+        <View style={styles.priceContainer}>
 
-        <Text style={styles.priceLabel}>
-          Precio contado
-        </Text>
+          <Text style={styles.priceLabel}>
+            Precio contado
+          </Text>
 
-        <Text style={styles.price}>
-          {formatCurrency(product.priceA)}
-        </Text>
+          <Text style={styles.price}>
+            {formatCurrency(product.priceA)}
+          </Text>
+
+        </View>
+
+        <Badge
+          label="1"
+          backgroundColor={colors.primary}
+        />
 
       </View>
 
@@ -98,30 +89,14 @@ const styles = StyleSheet.create({
     justifyContent:'space-between',
   },
 
-  header:{
-    flexDirection:'row',
-
-    justifyContent:'space-between',
-
-    alignItems:'center',
-  },
-
-  code:{
-    ...typography.caption,
-
-    color:colors.gray,
-
-    fontWeight:'600',
-  },
-
   name:{
-    ...typography.subtitle,
-
-    color:colors.black,
+    fontSize:14,
 
     fontWeight:'700',
 
-    marginTop:spacing.xs,
+    lineHeight:18,
+
+    color:colors.black,
   },
 
   brandRow:{
@@ -131,31 +106,45 @@ const styles = StyleSheet.create({
 
     gap:spacing.xs,
 
-    marginTop:spacing.sm,
+    marginTop:spacing.xs,
   },
 
   logo:{
-    width:24,
+    width:18,
 
-    height:24,
+    height:18,
   },
 
   brand:{
-    ...typography.body,
-
-    color:colors.grayDark,
+    fontSize:12,
 
     fontWeight:'600',
+
+    color:colors.grayDark,
   },
 
   category:{
     ...typography.caption,
 
     color:colors.gray,
+
+    marginTop:2,
+  },
+
+  priceRow:{
+    flexDirection:'row',
+
+    alignItems:'center',
+
+    justifyContent:'space-between',
+
+    gap:spacing.sm,
+
+    marginTop:spacing.sm,
   },
 
   priceContainer:{
-    marginTop:spacing.md,
+    flexShrink:1,
   },
 
   priceLabel:{
@@ -165,7 +154,7 @@ const styles = StyleSheet.create({
   },
 
   price:{
-    fontSize:22,
+    fontSize:20,
 
     fontWeight:'700',
 

@@ -12,6 +12,10 @@ export function useClients() {
 
   const [clients, setClients] = useState<Client[]>(bootClients);
   const [loading, setLoading] = useState(true);
+  // Búsqueda en curso: separado de `loading` para no reemplazar toda la
+  // pantalla por un spinner en cada letra escrita (la lista anterior se
+  // mantiene visible hasta que llega la respuesta nueva).
+  const [searchLoading, setSearchLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -23,9 +27,11 @@ export function useClients() {
 
   async function loadClients(query: string, targetPage: number, append: boolean) {
     const currentRequest = ++requestId.current;
+    const isSearch = query.length > 0;
 
     try {
       if (append) setLoadingMore(true);
+      else if (isSearch) setSearchLoading(true);
       else setLoading(true);
       setError(null);
 
@@ -54,24 +60,28 @@ export function useClients() {
     } finally {
       if (currentRequest !== requestId.current) return;
       setLoading(false);
+      setSearchLoading(false);
       setLoadingMore(false);
     }
   }
 
   useEffect(() => {
-    if (!bootLoading && bootClients.length > 0 && search.trim().length === 0) {
+    const trimmedSearch = search.trim();
+
+    if (!bootLoading && bootClients.length > 0 && trimmedSearch.length === 0) {
       setClients(bootClients);
       setTotal(bootClientsTotal);
       setPage(1);
       setLoading(false);
+      setSearchLoading(false);
       return;
     }
 
     const handle = setTimeout(
       () => {
-        loadClients(search, 1, false);
+        loadClients(trimmedSearch, 1, false);
       },
-      search ? SEARCH_DEBOUNCE_MS : 0
+      trimmedSearch ? SEARCH_DEBOUNCE_MS : 0
     );
 
     return () => clearTimeout(handle);
@@ -79,18 +89,19 @@ export function useClients() {
   }, [search, bootClients, bootClientsTotal, bootLoading]);
 
   function loadMore() {
-    if (loading || loadingMore) return;
+    if (loading || searchLoading || loadingMore) return;
     if (clients.length >= total) return;
-    loadClients(search, page + 1, true);
+    loadClients(search.trim(), page + 1, true);
   }
 
   function refresh() {
-    loadClients(search, 1, false);
+    loadClients(search.trim(), 1, false);
   }
 
   return {
     clients,
     loading,
+    searchLoading,
     loadingMore,
     error,
     hasClients: clients.length > 0,
