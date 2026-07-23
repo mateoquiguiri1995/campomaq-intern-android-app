@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Dimensions,
   Image,
@@ -12,25 +11,30 @@ import {
   Text,
   TextInput,
   View,
+  Alert,
+  ActivityIndicator,
+  Keyboard,
+  Animated,
+  Easing,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 
 import { useAuth } from '@/features/auth/AuthProvider';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// Colores oficiales especificados
+// Paleta de colores oficial adaptada al diseño premium
 const COLORS = {
-  primary: '#F5B400',       // Amarillo de marca
+  primary: '#F5B400',       // Amarillo Campo Maq
   white: '#FFFFFF',         // Blanco
-  black: '#1A1A1A',         // Casi negro
-  grayWarm: '#6B6660',      // Gris cálido para textos secundarios
-  amberDark: '#7A5C00',     // Ámbar oscuro para textos sobre amarillo
-  fieldBg: '#F7F5F0',       // Fondo de inputs
-  fieldBorder: '#ECE8DF',   // Borde de inputs
-  amberLink: '#A37A00',     // Ámbar para enlace de ayuda
-  grayLight: '#A9A49B',     // Gris claro para pie de página
+  black: '#1A1A1A',         // Casi negro para textos y elementos oscuros
+  headerBg: '#121212',      // Negro profundo de fondo de la cabecera
+  grayWarm: '#6B6660',      // Gris cálido para etiquetas e iconos secundarios
+  grayText: '#8A8A8A',      // Gris para textos secundarios y pie de página
+  grayLight: '#E5E5E5',     // Gris claro para bordes no enfocados y separadores
   danger: '#D64545',        // Rojo para errores
+  pillBg: 'rgba(255, 255, 255, 0.12)', // Fondo de la píldora de sucursal
 };
 
 export default function LoginScreen() {
@@ -42,9 +46,83 @@ export default function LoginScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Estados de foco para el estilo premium de los inputs
+  const [focusedField, setFocusedField] = useState<'email' | 'password' | null>(null);
+
+  const emailInputRef = useRef<TextInput>(null);
+  const passwordInputRef = useRef<TextInput>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  // Animación del halo / brillo y el tamaño del logo
+  const pulseAnim = useRef(new Animated.Value(0)).current;
+
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showSubscription = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => setKeyboardHeight(e.endCoordinates.height)
+    );
+    const hideSubscription = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+      }
+    );
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
+
+  const handleFocus = (field: 'email' | 'password') => {
+    setFocusedField(field);
+    setTimeout(() => {
+      // Elevamos la pantalla a y: 220 para empujar ambos campos (Usuario y Contraseña)
+      // por encima del teclado, manteniéndolos visibles simultáneamente.
+      scrollViewRef.current?.scrollTo({ y: 220, animated: true });
+    }, 100);
+  };
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 2200,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0,
+          duration: 2200,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulseAnim]);
+
+  // Interpolación de escala para todo el conjunto (logo + brillo)
+  const logoScale = pulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.94, 1.06],
+  });
+
+  // Interpolación de opacidad para el brillo difuminado
+  const glowOpacity = pulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.20, 0.45],
+  });
+
   const canSubmit = email.trim().length > 0 && password.length > 0 && !isSubmitting;
 
   async function handleSubmit() {
+    if (!canSubmit) return;
     setError(null);
     setIsSubmitting(true);
     try {
@@ -60,78 +138,147 @@ export default function LoginScreen() {
     }
   }
 
+  const handleQRLogin = () => {
+    Alert.alert(
+      'Ingreso con Código QR',
+      'La autenticación por código QR no está configurada para este entorno. Por favor, ingresa con tus credenciales de usuario y contraseña.',
+      [{ text: 'Entendido' }]
+    );
+  };
+
+  const handleForgotPassword = () => {
+    Alert.alert(
+      'Recuperar Contraseña',
+      'Para recuperar tu clave, por favor contacta al administrador de TI de Campo Maq.',
+      [{ text: 'Aceptar' }]
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
+      <StatusBar style="light" />
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
-          contentContainerStyle={styles.container}
+          ref={scrollViewRef}
+          contentContainerStyle={[
+            styles.container,
+            keyboardHeight > 0 && { paddingBottom: keyboardHeight + 80 }
+          ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Banda superior amarilla (~40% de altura) con tractor y branding a la izquierda */}
-          <View style={styles.yellowBand}>
-            {/* Imagen del tractor en el fondo a la derecha */}
-            <Image
-              source={require('@/assets/images/campomaq/hero-ilustracion.png')}
-              style={styles.tractorImage}
-              resizeMode="cover"
-            />
+          {/* Cabecera Negra con Formas Decorativas */}
+          <View style={styles.blackBand}>
+            {/* Formas decorativas curvas grises con opacidad muy baja */}
+            <View style={styles.curve1} />
+            <View style={styles.curve2} />
+            <View style={styles.curve3} />
 
-            {/* Degradado de mezcla: amarillo suave a la izquierda, desvaneciéndose de forma gradual y fluida hacia la derecha */}
-            <LinearGradient
-              colors={['rgba(245, 180, 0, 0.72)', 'rgba(245, 180, 0, 0.35)', 'rgba(255, 255, 255, 0)']}
-              start={{ x: 0, y: 0.5 }}
-              end={{ x: 0.75, y: 0.5 }}
-              style={StyleSheet.absoluteFill}
-            />
+            {/* Contenedor Animado para el Logo y el Brillo (titilar/respirar juntos) */}
+            <Animated.View style={[
+              styles.logoGroupContainer,
+              {
+                transform: [{ scale: logoScale }],
+              }
+            ]}>
+              {/* Brillo amarillo pulsante y difuminado detrás del logo */}
+              <Animated.View style={[
+                styles.glowWrapper,
+                {
+                  opacity: glowOpacity,
+                }
+              ]}>
+                <Image
+                  source={require('@/assets/images/logo-glow.png')}
+                  style={styles.glowImage}
+                  resizeMode="contain"
+                />
+              </Animated.View>
 
-            {/* Textos y Branding alineados a la izquierda */}
-            <View style={styles.heroTextContainer}>
+              {/* Logo de Campo Maq centrado */}
               <Image
                 source={require('@/assets/images/campomaq/campomaq.png')}
-                style={styles.logoLeft}
+                style={styles.logo}
                 resizeMode="contain"
               />
-              <Text style={styles.titleLeft}>¡Bienvenido!</Text>
-              <Text style={styles.subtitleLeft}>
-                Ingresa tus credenciales{"\n"}para continuar
+            </Animated.View>
+
+            {/* Textos y Pill alineados abajo a la izquierda */}
+            <View style={styles.heroTextContainer}>
+              <Text style={styles.subtitleLeft}>PORTAL DE VENTAS</Text>
+              <Text style={styles.titleLeft}>
+                Bienvenido de vuelta,{"\n"}vendedor.
               </Text>
-              <View style={styles.shortLine} />
+              
+              <View style={styles.branchPill}>
+                <Ionicons name="location-sharp" size={14} color={COLORS.primary} />
+                <Text style={styles.branchText}>Cayambe - Pichincha</Text>
+                <Ionicons name="chevron-forward-sharp" size={11} color="rgba(255, 255, 255, 0.5)" />
+              </View>
             </View>
           </View>
 
-          {/* Formulario en hoja blanca inferior */}
+          {/* Formulario en Tarjeta Blanca */}
           <View style={styles.formContainer}>
-            {/* Campo 1: Correo/Usuario (sin etiqueta de texto externa) */}
-            <View style={styles.inputBox}>
-              <Ionicons name="mail-outline" size={18} color={COLORS.grayWarm} />
+            
+            {/* Campo 1: Usuario */}
+            <Text style={styles.fieldLabel}>USUARIO</Text>
+            <Pressable 
+              onPress={() => emailInputRef.current?.focus()}
+              style={[
+                styles.inputBox,
+                focusedField === 'email' && styles.inputBoxFocused
+              ]}
+            >
+              <Ionicons 
+                name="person-outline" 
+                size={18} 
+                color={focusedField === 'email' ? COLORS.primary : COLORS.grayWarm} 
+              />
               <TextInput
+                ref={emailInputRef}
                 style={styles.textInput}
                 value={email}
                 onChangeText={setEmail}
                 autoCapitalize="none"
                 autoComplete="email"
                 keyboardType="email-address"
-                placeholder="e-mail@campomaq.ec"
-                placeholderTextColor={COLORS.grayWarm}
+                placeholder="m.salinas@campomaq.ec"
+                placeholderTextColor={COLORS.grayText}
+                onFocus={() => handleFocus('email')}
+                onBlur={() => setFocusedField(null)}
               />
-            </View>
+            </Pressable>
 
-            {/* Campo 2: Contraseña (sin etiqueta de texto externa) */}
-            <View style={styles.inputBox}>
-              <Ionicons name="lock-closed-outline" size={18} color={COLORS.grayWarm} />
+            {/* Campo 2: Contraseña */}
+            <Text style={styles.fieldLabel}>CONTRASEÑA</Text>
+            <Pressable 
+              onPress={() => passwordInputRef.current?.focus()}
+              style={[
+                styles.inputBox,
+                focusedField === 'password' && styles.inputBoxFocused
+              ]}
+            >
+              <Ionicons 
+                name="lock-closed-outline" 
+                size={18} 
+                color={focusedField === 'password' ? COLORS.primary : COLORS.grayWarm} 
+              />
               <TextInput
+                ref={passwordInputRef}
                 style={styles.textInput}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
                 autoComplete="password"
-                placeholder="••••••••"
-                placeholderTextColor={COLORS.grayWarm}
+                placeholder="••••••••••••"
+                placeholderTextColor={COLORS.grayText}
                 onSubmitEditing={canSubmit ? handleSubmit : undefined}
+                onFocus={() => handleFocus('password')}
+                onBlur={() => setFocusedField(null)}
               />
               <Pressable
                 onPress={() => setShowPassword((prev) => !prev)}
@@ -144,27 +291,30 @@ export default function LoginScreen() {
                   color={COLORS.grayWarm}
                 />
               </Pressable>
-            </View>
+            </Pressable>
 
-            {/* Fila Recordarme & Olvidaste */}
+            {/* Fila Recordarme & Olvidaste Contraseña */}
             <View style={styles.rememberRow}>
               <Pressable
                 onPress={() => setRememberMe((prev) => !prev)}
                 style={styles.checkboxContainer}
                 hitSlop={8}
               >
-                <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+                <View style={[
+                  styles.checkbox, 
+                  rememberMe && styles.checkboxChecked
+                ]}>
                   {rememberMe && <Ionicons name="checkmark" size={12} color={COLORS.black} />}
                 </View>
-                <Text style={styles.checkboxText}>Recordarme</Text>
+                <Text style={styles.checkboxText}>Mantener sesión</Text>
               </Pressable>
 
-              <Pressable hitSlop={8}>
-                <Text style={styles.forgotText}>¿Olvidaste?</Text>
+              <Pressable onPress={handleForgotPassword} hitSlop={8}>
+                <Text style={styles.forgotText}>¿Olvidaste tu clave?</Text>
               </Pressable>
             </View>
 
-            {/* Caja de error */}
+            {/* Caja de Error */}
             {error && (
               <View style={styles.errorBox}>
                 <Ionicons name="alert-circle-outline" size={16} color={COLORS.danger} />
@@ -172,25 +322,46 @@ export default function LoginScreen() {
               </View>
             )}
 
-            {/* Botón Principal */}
+            {/* Botón Iniciar Sesión (Amarillo) */}
             <Pressable
               disabled={!canSubmit}
               onPress={handleSubmit}
               style={({ pressed }) => [
                 styles.submitButton,
                 !canSubmit && styles.submitButtonDisabled,
-                pressed && styles.submitButtonPressed,
+                pressed && !isSubmitting && styles.submitButtonPressed,
               ]}
             >
-              <Text style={styles.submitButtonText}>
-                {isSubmitting ? 'Ingresando…' : 'Iniciar sesión'}
-              </Text>
+              {isSubmitting ? (
+                <ActivityIndicator color={COLORS.black} size="small" />
+              ) : (
+                <Text style={styles.submitButtonText}>INICIAR SESIÓN</Text>
+              )}
+            </Pressable>
+
+            {/* Separador "o" */}
+            <View style={styles.separatorContainer}>
+              <View style={styles.separatorLine} />
+              <Text style={styles.separatorText}>o</Text>
+              <View style={styles.separatorLine} />
+            </View>
+
+            {/* Botón Código QR */}
+            <Pressable
+              onPress={handleQRLogin}
+              style={({ pressed }) => [
+                styles.qrButton,
+                pressed && styles.qrButtonPressed,
+              ]}
+            >
+              <Ionicons name="qr-code-outline" size={18} color={COLORS.black} />
+              <Text style={styles.qrButtonText}>Ingresar con código QR</Text>
             </Pressable>
           </View>
 
-          {/* Pie de página */}
+          {/* Pie de Página */}
           <View style={styles.footerContainer}>
-            <Text style={styles.footerText}>v1.0 · Cayambe · Ecuador</Text>
+            <Text style={styles.footerText}>v2.4.1 · Cayambe - Pichincha</Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -210,70 +381,137 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     backgroundColor: COLORS.white,
   },
-  yellowBand: {
-    height: SCREEN_HEIGHT * 0.42,
-    backgroundColor: COLORS.white,
-    borderBottomLeftRadius: 40,
-    borderBottomRightRadius: 40,
+  blackBand: {
+    height: SCREEN_HEIGHT * 0.44,
+    backgroundColor: COLORS.headerBg,
     position: 'relative',
     overflow: 'hidden',
   },
-  tractorImage: {
+  // Formas curvas de la cabecera
+  curve1: {
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     position: 'absolute',
-    right: -20,
-    bottom: 0,
-    width: '65%',
+    top: -120,
+    right: -80,
+  },
+  curve2: {
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    position: 'absolute',
+    top: -40,
+    left: -100,
+  },
+  curve3: {
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: 'rgba(255, 255, 255, 0.015)',
+    position: 'absolute',
+    bottom: -40,
+    right: -30,
+  },
+  // Contenedor del grupo de logo y brillo para animar escala en conjunto
+  logoGroupContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 320,
+    height: 120,
+    alignSelf: 'center',
+    marginTop: Platform.OS === 'ios' ? 45 : 55,
+    position: 'relative',
+  },
+  // Contenedor del brillo difuminado
+  glowWrapper: {
+    position: 'absolute',
+    width: 380,
+    height: 380,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  glowImage: {
+    width: '100%',
     height: '100%',
-    opacity: 0.55,
+    tintColor: '#F5B400', // Convierte el brillo azul a amarillo Campo Maq
+  },
+  logo: {
+    width: 210,
+    height: 210 / 3.85,
+    zIndex: 2,
   },
   heroTextContainer: {
     position: 'absolute',
     left: 24,
-    bottom: 44,
-    right: '42%',
-    zIndex: 2,
+    bottom: 30,
+    right: 24,
   },
-  logoLeft: {
-    width: 175,
-    height: 175 / 3.85,
-    marginBottom: 16,
-    alignSelf: 'flex-start',
+  subtitleLeft: {
+    fontFamily: 'Barlow_700Bold',
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.6)',
+    letterSpacing: 1.5,
+    marginBottom: 6,
   },
   titleLeft: {
     fontFamily: 'Barlow_700Bold',
-    fontSize: 24,
-    color: COLORS.black,
+    fontSize: 28,
+    color: COLORS.white,
+    lineHeight: 34,
     fontWeight: '800',
-    marginBottom: 6,
   },
-  subtitleLeft: {
-    fontFamily: 'Barlow_500Medium',
-    fontSize: 13,
-    color: '#3A362F',
-    lineHeight: 17,
+  branchPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: COLORS.pillBg,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginTop: 14,
+    gap: 6,
   },
-  shortLine: {
-    width: 32,
-    height: 3,
-    backgroundColor: COLORS.black,
-    marginTop: 12,
-    borderRadius: 1.5,
+  branchText: {
+    fontFamily: 'Barlow_600SemiBold',
+    fontSize: 12,
+    color: COLORS.white,
   },
   formContainer: {
-    paddingHorizontal: 26,
+    paddingHorizontal: 24,
     paddingTop: 28,
     backgroundColor: COLORS.white,
+  },
+  fieldLabel: {
+    fontFamily: 'Barlow_700Bold',
+    fontSize: 11,
+    color: COLORS.grayWarm,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 8,
   },
   inputBox: {
     flexDirection: 'row',
     alignItems: 'center',
     height: 54,
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: COLORS.fieldBorder,
-    backgroundColor: COLORS.fieldBg,
+    borderColor: COLORS.grayLight,
+    backgroundColor: COLORS.white,
     paddingHorizontal: 16,
-    marginBottom: 16,
+    marginBottom: 20,
+  },
+  inputBoxFocused: {
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+    // Efecto premium de sombra leve del color de marca
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   textInput: {
     flex: 1,
@@ -291,7 +529,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 28,
   },
   checkboxContainer: {
     flexDirection: 'row',
@@ -312,16 +550,16 @@ const styles = StyleSheet.create({
     borderColor: COLORS.primary,
     backgroundColor: COLORS.primary,
   },
+  forgotText: {
+    fontFamily: 'Barlow_600SemiBold',
+    fontSize: 13,
+    color: COLORS.black,
+    textDecorationLine: 'underline',
+  },
   checkboxText: {
     fontFamily: 'Barlow_500Medium',
-    fontSize: 12,
+    fontSize: 13,
     color: COLORS.grayWarm,
-  },
-  forgotText: {
-    fontFamily: 'Barlow_700Bold',
-    fontSize: 12,
-    fontWeight: '700',
-    color: COLORS.amberLink,
   },
   errorBox: {
     flexDirection: 'row',
@@ -330,7 +568,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF2F2',
     borderRadius: 12,
     padding: 12,
-    marginBottom: 16,
+    marginBottom: 20,
     borderWidth: 1,
     borderColor: '#FFE0E0',
   },
@@ -345,13 +583,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     height: 54,
-    borderRadius: 14,
-    backgroundColor: COLORS.black,
+    borderRadius: 12,
+    backgroundColor: COLORS.primary,
     paddingVertical: 16,
-    marginTop: 8,
+    // Sombra premium del color de marca en iOS y Android
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 5,
   },
   submitButtonDisabled: {
     opacity: 0.5,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   submitButtonPressed: {
     opacity: 0.85,
@@ -359,19 +604,53 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontFamily: 'Barlow_700Bold',
     fontSize: 15,
-    color: COLORS.primary,
+    color: COLORS.black,
     fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  separatorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 24,
+  },
+  separatorLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: COLORS.grayLight,
+  },
+  separatorText: {
+    fontFamily: 'Barlow_500Medium',
+    fontSize: 13,
+    color: COLORS.grayText,
+    marginHorizontal: 12,
+  },
+  qrButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 54,
+    borderRadius: 12,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.grayLight,
+    gap: 8,
+  },
+  qrButtonPressed: {
+    backgroundColor: '#F9F9F9',
+  },
+  qrButtonText: {
+    fontFamily: 'Barlow_600SemiBold',
+    fontSize: 14,
+    color: COLORS.black,
   },
   footerContainer: {
-    marginTop: 'auto',
-    paddingVertical: 24,
-    justifyContent: 'flex-end',
+    paddingVertical: 32,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   footerText: {
     fontFamily: 'Barlow_500Medium',
     fontSize: 11,
-    color: COLORS.grayLight,
-    textAlign: 'center',
+    color: COLORS.grayText,
   },
 });
