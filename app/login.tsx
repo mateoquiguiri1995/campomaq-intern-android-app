@@ -26,7 +26,7 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Paleta de colores oficial adaptada al diseño premium
 const COLORS = {
-  primary: '#F5B400',       // Amarillo Campo Maq
+  primary: '#EBD600',       // Amarillo Campo Maq
   white: '#FFFFFF',         // Blanco
   black: '#1A1A1A',         // Casi negro para textos y elementos oscuros
   headerBg: '#121212',      // Negro profundo de fondo de la cabecera
@@ -437,7 +437,7 @@ const styles = StyleSheet.create({
   glowImage: {
     width: '100%',
     height: '100%',
-    tintColor: '#F5B400', // Convierte el brillo azul a amarillo Campo Maq
+    tintColor: '#EBD600', // Convierte el brillo azul a amarillo Campo Maq
   },
   logo: {
     width: 210,
@@ -520,6 +520,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.black,
     fontFamily: 'Barlow_500Medium',
+    backgroundColor: COLORS.white,
   },
   eyeButton: {
     padding: 6,

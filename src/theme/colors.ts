@@ -4,7 +4,7 @@
  */
 export const colors = {
   // Marca
-  primary: '#F5B800', // amarillo Campo Maq
+  primary: '#EBD600', // amarillo Campo Maq
   primaryDark: '#D9A300',
   onPrimary: '#1A1A1A', // texto sobre amarillo
 

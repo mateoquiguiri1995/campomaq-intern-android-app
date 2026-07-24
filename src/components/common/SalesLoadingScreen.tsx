@@ -52,13 +52,19 @@ export function SalesLoadingScreen({ progress: progressProp, onComplete }: Sales
   // Interpolación de escala para todo el grupo (logo + brillo)
   const logoScale = pulseAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.94, 1.06],
+    outputRange: [0.97, 1.03],
+  });
+
+  // Interpolación de escala específica para el brillo (glow)
+  const glowScale = pulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.85, 1.25],
   });
 
   // Interpolación de opacidad para el brillo difuminado
   const glowOpacity = pulseAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.20, 0.45],
+    outputRange: [0.30, 0.85],
   });
 
   // Efecto para llamar a onComplete en caso de progreso real por prop
@@ -161,12 +167,14 @@ export function SalesLoadingScreen({ progress: progressProp, onComplete }: Sales
               styles.glowWrapper,
               {
                 opacity: glowOpacity,
+                transform: [{ scale: glowScale }],
               }
             ]}>
               <Image
                 source={require('../../../assets/images/logo-glow.png')}
                 style={styles.glowImage}
                 contentFit="contain"
+                tintColor="#EBD600"
               />
             </Animated.View>
 
@@ -235,8 +243,8 @@ const styles = StyleSheet.create({
   // Contenedor del brillo difuminado
   glowWrapper: {
     position: 'absolute',
-    width: 380,
-    height: 380,
+    width: 340,
+    height: 340,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1,
@@ -244,11 +252,10 @@ const styles = StyleSheet.create({
   glowImage: {
     width: '100%',
     height: '100%',
-    tintColor: '#F5B400', // Convierte el brillo azul a amarillo Campo Maq
   },
   logo: {
     width: 210,
-    height: 210 / 3.85,
+    height: 210 / 2.6, // Ajustado a la relación de aspecto original (224x86 -> 2.6) para evitar deformación
     zIndex: 2,
   },
   // Barra de progreso horizontal
@@ -267,7 +274,7 @@ const styles = StyleSheet.create({
   progressBarFill: {
     height: '100%',
     borderRadius: 3,
-    backgroundColor: '#F5B400', // Amarillo institucional
+    backgroundColor: '#EBD600', // Amarillo institucional
   },
   messageText: {
     fontFamily: 'Barlow_600SemiBold',

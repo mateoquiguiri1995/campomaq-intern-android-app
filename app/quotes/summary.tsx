@@ -12,6 +12,7 @@ import { useQuoteBuilder } from '@/features/quotes/QuoteBuilderProvider';
 import { getQuoteTotals } from '@/features/quotes/services/quoteCalculations';
 import { getClientDisplayName, getClientDisplaySubtitle } from '@/features/quotes/services/quoteClient';
 import { shareQuotePdf } from '@/features/quotes/services/quotePdf';
+import { useAuth } from '@/features/auth/AuthProvider';
 import { colors } from '@/theme/colors';
 import { radius, spacing } from '@/theme/spacing';
 import { typography } from '@/theme/typography';
@@ -20,6 +21,7 @@ import { formatCurrency } from '@/utils/currency';
 /** Paso 3: revisar la cotización, guardarla como borrador o generar y compartir el PDF. */
 export default function QuoteSummaryScreen() {
   const router = useRouter();
+  const { session } = useAuth();
   const { draftId } = useLocalSearchParams<{ draftId?: string }>();
   const { client, items, loadDraft, updateItem, removeItem, saveDraft, markGenerated } = useQuoteBuilder();
 
@@ -52,7 +54,7 @@ export default function QuoteSummaryScreen() {
     try {
       setGenerating(true);
       const quote = await markGenerated();
-      await shareQuotePdf(quote);
+      await shareQuotePdf(quote, session?.user ?? undefined);
       router.replace('/reports');
     } catch (error) {
       Alert.alert('No se pudo generar el PDF', error instanceof Error ? error.message : 'Intenta de nuevo.');
