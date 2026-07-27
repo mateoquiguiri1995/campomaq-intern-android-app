@@ -17,8 +17,9 @@ function getInitials(name: string): string {
 
 /** Avatar simple de cliente mientras la API no entregue una fotografía real. */
 export function ClientAvatar({ name, size = 48 }: ClientAvatarProps) {
+  const borderRadius = size >= 70 ? 16 : 10;
   return (
-    <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2 }]}>
+    <View style={[styles.avatar, { width: size, height: size, borderRadius }]}>
       <Text style={[styles.initials, { fontSize: size >= 70 ? 24 : 16 }]}>{getInitials(name)}</Text>
     </View>
   );

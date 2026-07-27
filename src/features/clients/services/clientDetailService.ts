@@ -7,33 +7,33 @@ function buildMockInvoices(clientId: string): ClientInvoice[] {
   return [
     {
       id: `${clientId}-invoice-1`,
-      issuedAt: '2026-07-11',
-      code: 'FAC-001-002-000184',
-      name: 'Compra de maquinaria y repuestos',
-      itemCount: 4,
-      paymentMethod: 'Transferencia bancaria',
-      status: 'paid',
-      total: 2450,
+      issuedAt: '2026-02-18',
+      code: 'F-2028-02091',
+      name: 'Repuestos motosierra (kit)',
+      itemCount: 5,
+      paymentMethod: 'Crédito 30d',
+      status: 'pending',
+      total: 412.50,
     },
     {
       id: `${clientId}-invoice-2`,
-      issuedAt: '2026-04-24',
-      code: 'FAC-001-002-000129',
-      name: 'Repuestos y mantenimiento',
+      issuedAt: '2026-01-07',
+      code: 'F-2028-00455',
+      name: 'Desbrozadora FS-128 + arnés',
       itemCount: 2,
       paymentMethod: 'Tarjeta',
       status: 'paid',
-      total: 980.5,
+      total: 580.00,
     },
     {
       id: `${clientId}-invoice-3`,
-      issuedAt: '2025-10-03',
-      code: 'FAC-001-002-000071',
-      name: 'Implementos agrícolas',
-      itemCount: 6,
-      paymentMethod: 'Crédito',
-      status: 'pending',
-      total: 620,
+      issuedAt: '2025-11-15',
+      code: 'F-2025-11820',
+      name: 'Generador 5kW Pramac',
+      itemCount: 1,
+      paymentMethod: 'Transferencia',
+      status: 'paid',
+      total: 1120.00,
     },
   ];
 }
@@ -49,12 +49,14 @@ export async function getClientDetail(client: Client): Promise<ClientDetail> {
   // return mapApiClientDetail(data);
 
   const invoices = buildMockInvoices(client.id);
+  const isFlorida = client.name.toLowerCase().includes('florida') || client.name.toLowerCase().includes('hacienda');
 
   return {
     ...client,
-    totalPurchases: invoices.reduce((total, invoice) => total + invoice.total, 0),
-    purchaseCount: invoices.length,
-    scoreLabel: 'A+',
+    totalPurchases: isFlorida ? 4000 : invoices.reduce((total, invoice) => total + invoice.total, 0),
+    purchaseCount: isFlorida ? 5 : invoices.length,
+    scoreLabel: isFlorida ? 'A+' : 'A',
+    contactName: isFlorida ? 'Juan Vásquez' : 'Representante Legal',
     notes: [
       'Prefiere confirmar entregas por llamada telefónica.',
       'Cliente frecuente de repuestos e implementos agrícolas.',

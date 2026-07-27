@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -9,13 +10,14 @@ import { radius, spacing } from '@/theme/spacing';
 import { typography } from '@/theme/typography';
 
 import { downloadMockInvoicePdf } from '../services/clientDetailService';
-import type { ClientDetail, ClientInvoice } from '../types';
+import type { ClientDetail as ClientDetailType, ClientInvoice } from '../types';
 import { ClientAvatar } from './ClientAvatar';
+import { useQuoteBuilder } from '@/features/quotes/QuoteBuilderProvider';
 
 type DetailTab = 'history' | 'data' | 'notes';
 
 interface ClientDetailProps {
-  client: ClientDetail;
+  client: ClientDetailType;
 }
 
 function formatCompactCurrency(value: number): string {
@@ -24,11 +26,12 @@ function formatCompactCurrency(value: number): string {
 }
 
 function formatDate(value: string): string {
-  return new Intl.DateTimeFormat('es-EC', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date(`${value}T12:00:00`));
+  const date = new Date(`${value}T12:00:00`);
+  const months = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = months[date.getMonth()];
+  const year = date.getFullYear();
+  return `${day} ${month} ${year}`;
 }
 
 function ActionButton({
@@ -48,7 +51,7 @@ function ActionButton({
       onPress={onPress}
       disabled={disabled}
     >
-      <Ionicons name={icon} size={20} color={colors.black} />
+      <Ionicons name={icon} size={18} color={colors.black} />
       <Text style={styles.actionLabel}>{label}</Text>
     </Pressable>
   );
@@ -75,29 +78,32 @@ function InvoiceCard({ invoice, clientName }: { invoice: ClientInvoice; clientNa
   return (
     <View style={styles.invoiceCard}>
       <View style={styles.invoiceTopRow}>
-        <View>
-          <Text style={styles.invoiceDate}>{formatDate(invoice.issuedAt)}</Text>
-          <Text style={styles.invoiceCode}>{invoice.code}</Text>
-        </View>
+        <Text style={styles.invoiceHeader}>
+          {formatDate(invoice.issuedAt).toUpperCase()} · {invoice.code}
+        </Text>
         <Badge
           label={isPaid ? 'Pagada' : 'Pendiente'}
-          backgroundColor={isPaid ? colors.success : colors.warning}
-          textColor={isPaid ? colors.surface : colors.black}
+          backgroundColor={isPaid ? '#E8F5E9' : '#FFF3E0'}
+          textColor={isPaid ? '#2E7D32' : '#B25E00'}
         />
       </View>
 
       <Text style={styles.invoiceName}>{invoice.name}</Text>
-      <Text style={styles.invoiceMeta}>{invoice.itemCount} ítems · {invoice.paymentMethod}</Text>
+      <Text style={styles.invoiceMeta}>
+        {invoice.itemCount} {invoice.itemCount === 1 ? 'Item' : 'items'} - {invoice.paymentMethod}
+      </Text>
+
+      <View style={styles.dashedLine} />
 
       <View style={styles.invoiceBottomRow}>
         <Text style={styles.invoiceTotal}>{formatCurrency(invoice.total)}</Text>
         <Pressable
-          style={({ pressed }) => [styles.pdfButton, pressed && styles.pressed, downloading && styles.disabled]}
+          style={({ pressed }) => [styles.detailLink, pressed && styles.pressed, downloading && styles.disabled]}
           onPress={handleDownload}
           disabled={downloading}
         >
-          <Ionicons name="document-text-outline" size={16} color={colors.black} />
-          <Text style={styles.pdfButtonText}>{downloading ? 'Generando...' : 'PDF'}</Text>
+          <Text style={styles.detailLinkText}>{downloading ? 'Generando...' : 'Ver detalle'}</Text>
+          <Ionicons name="chevron-forward" size={14} color={colors.primaryDark} />
         </Pressable>
       </View>
     </View>
@@ -106,9 +112,32 @@ function InvoiceCard({ invoice, clientName }: { invoice: ClientInvoice; clientNa
 
 export function ClientDetail({ client }: ClientDetailProps) {
   const [activeTab, setActiveTab] = useState<DetailTab>('history');
+  const router = useRouter();
+  const { resetBuilder } = useQuoteBuilder();
 
   function openContact(url: string, unavailableMessage: string) {
     Linking.openURL(url).catch(() => Alert.alert('Acción no disponible', unavailableMessage));
+  }
+
+  function handleNewSale() {
+    resetBuilder();
+    const clientSummary = {
+      id: client.id,
+      name: client.name,
+      ruc: client.ruc,
+      email: client.email,
+      phone: client.phone,
+      location: client.location,
+      score: client.score,
+      hasPendingCredit: client.hasPendingCredit,
+    };
+    router.push({
+      pathname: '/quotes/select-client',
+      params: {
+        clientId: client.id,
+        clientData: JSON.stringify(clientSummary),
+      },
+    });
   }
 
   return (
@@ -117,10 +146,12 @@ export function ClientDetail({ client }: ClientDetailProps) {
         <ClientAvatar name={client.name} size={76} />
         <View style={styles.profileText}>
           <Text style={styles.name}>{client.name}</Text>
-          <Text style={styles.ruc}>RUC/CI: {client.ruc}</Text>
+          <Text style={styles.ruc}>
+            {client.contactName ? `${client.contactName} · ` : ''}RUC {client.ruc}
+          </Text>
           {client.location ? (
             <View style={styles.locationRow}>
-              <Ionicons name="location-outline" size={15} color={colors.grayDark} />
+              <Ionicons name="location" size={14} color={colors.gray} />
               <Text style={styles.location}>{client.location}</Text>
             </View>
           ) : null}
@@ -129,29 +160,28 @@ export function ClientDetail({ client }: ClientDetailProps) {
 
       <View style={styles.actions}>
         <ActionButton
-          icon="call-outline"
+          icon="call"
           label="Llamar"
           disabled={!client.phone}
           onPress={() => openContact(`tel:${client.phone}`, 'No hay teléfono registrado para este cliente.')}
         />
         <ActionButton
-          icon="mail-outline"
+          icon="mail"
           label="Email"
           disabled={!client.email}
           onPress={() => openContact(`mailto:${client.email}`, 'No hay correo registrado para este cliente.')}
         />
         <ActionButton
-          icon="chatbubble-outline"
-          label="SMS"
-          disabled={!client.phone}
-          onPress={() => openContact(`sms:${client.phone}`, 'No hay teléfono registrado para este cliente.')}
+          icon="cart"
+          label="Nueva venta"
+          onPress={handleNewSale}
         />
       </View>
 
       <View style={styles.metrics}>
-        <MetricCard label="Compras totales" value={formatCompactCurrency(client.totalPurchases)} />
-        <MetricCard label="Compras" value={String(client.purchaseCount)} />
-        <MetricCard label="Score" value={client.scoreLabel} />
+        <MetricCard label="VIDA TOTAL" value={formatCompactCurrency(client.totalPurchases)} />
+        <MetricCard label="COMPRAS" value={String(client.purchaseCount)} />
+        <MetricCard label="SCORE" value={client.scoreLabel} />
       </View>
 
       <View style={styles.tabs}>
@@ -162,7 +192,6 @@ export function ClientDetail({ client }: ClientDetailProps) {
 
       {activeTab === 'history' && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Facturas de los últimos 12 meses</Text>
           {client.invoices.map((invoice) => (
             <InvoiceCard key={invoice.id} invoice={invoice} clientName={client.name} />
           ))}
@@ -194,10 +223,18 @@ export function ClientDetail({ client }: ClientDetailProps) {
 }
 
 function MetricCard({ label, value }: { label: string; value: string }) {
+  const isScore = label === 'SCORE';
   return (
-    <View style={styles.metricCard}>
-      <Text style={styles.metricValue}>{value}</Text>
-      <Text style={styles.metricLabel}>{label}</Text>
+    <View style={[styles.metricCard, isScore && styles.metricCardScore]}>
+      <Text style={[styles.metricLabel, isScore && styles.metricLabelScore]}>{label}</Text>
+      {isScore ? (
+        <View style={styles.metricValueScore}>
+          <Ionicons name="star" size={14} color={colors.primary} />
+          <Text style={styles.scoreText}>{value}</Text>
+        </View>
+      ) : (
+        <Text style={styles.metricValue}>{value}</Text>
+      )}
     </View>
   );
 }
@@ -222,35 +259,93 @@ function DataRow({ label, value }: { label: string; value: string }) {
 const styles = StyleSheet.create({
   container: { gap: spacing.md },
   profileHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  profileText: { flex: 1, gap: spacing.xs },
-  name: { ...typography.title, color: colors.black, fontSize: 22 },
-  ruc: { ...typography.body, color: colors.grayDark },
-  locationRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  location: { ...typography.caption, color: colors.grayDark, flex: 1 },
+  profileText: { flex: 1, gap: 2 },
+  name: { ...typography.title, color: colors.black, fontSize: 20, fontWeight: '700' },
+  ruc: { ...typography.body, color: colors.grayDark, fontSize: 13 },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+  location: { ...typography.caption, color: colors.grayDark, fontSize: 12, fontWeight: '500' },
   actions: { flexDirection: 'row', gap: spacing.sm },
-  actionButton: { flex: 1, alignItems: 'center', gap: spacing.xs, paddingVertical: spacing.sm, backgroundColor: colors.primary, borderRadius: radius.md },
-  actionLabel: { ...typography.caption, fontWeight: '700', color: colors.black },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    backgroundColor: '#FAFAFA',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: '#EAEAEA',
+  },
+  actionLabel: { ...typography.caption, fontWeight: '600', color: colors.black },
   metrics: { flexDirection: 'row', gap: spacing.sm },
-  metricCard: { flex: 1, minHeight: 84, justifyContent: 'center', backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.sm },
-  metricValue: { ...typography.subtitle, color: colors.black, fontWeight: '700' },
-  metricLabel: { ...typography.caption, color: colors.grayDark, marginTop: spacing.xs },
+  metricCard: {
+    flex: 1,
+    minHeight: 74,
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.sm,
+  },
+  metricCardScore: {
+    backgroundColor: colors.black,
+    borderColor: colors.black,
+  },
+  metricLabel: {
+    ...typography.caption,
+    color: colors.gray,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  metricLabelScore: {
+    color: colors.grayLight,
+  },
+  metricValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.black,
+  },
+  metricValueScore: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  scoreText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.surface,
+  },
   tabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.border },
-  tabButton: { flex: 1, alignItems: 'center', paddingVertical: spacing.sm, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabButtonActive: { borderBottomColor: colors.primaryDark },
-  tabLabel: { ...typography.body, color: colors.grayDark },
+  tabButton: { flex: 1, alignItems: 'center', paddingVertical: spacing.sm, borderBottomWidth: 3, borderBottomColor: 'transparent' },
+  tabButtonActive: { borderBottomColor: colors.primary },
+  tabLabel: { ...typography.body, color: colors.gray },
   tabLabelActive: { color: colors.black, fontWeight: '700' },
   section: { gap: spacing.sm },
-  sectionTitle: { ...typography.subtitle, color: colors.black, fontWeight: '700' },
-  invoiceCard: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.md, gap: spacing.sm },
-  invoiceTopRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },
-  invoiceDate: { ...typography.caption, color: colors.grayDark },
-  invoiceCode: { ...typography.caption, color: colors.gray, marginTop: 2 },
-  invoiceName: { ...typography.body, color: colors.black, fontWeight: '600' },
+  invoiceCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  invoiceTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
+  invoiceHeader: { ...typography.caption, color: colors.gray, fontWeight: '500' },
+  invoiceName: { fontSize: 16, color: colors.black, fontWeight: '600' },
   invoiceMeta: { ...typography.caption, color: colors.grayDark },
+  dashedLine: {
+    height: 1,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    borderStyle: 'dashed',
+    marginVertical: spacing.sm,
+  },
   invoiceBottomRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  invoiceTotal: { ...typography.subtitle, color: colors.black, fontWeight: '700' },
-  pdfButton: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, backgroundColor: colors.primary, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
-  pdfButtonText: { ...typography.caption, color: colors.black, fontWeight: '700' },
+  invoiceTotal: { fontSize: 18, color: colors.black, fontWeight: '700' },
+  detailLink: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  detailLinkText: { ...typography.caption, color: colors.primaryDark, fontWeight: '600' },
   dataCard: { backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md },
   dataRow: { paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border, gap: 2 },
   dataLabel: { ...typography.caption, color: colors.gray },

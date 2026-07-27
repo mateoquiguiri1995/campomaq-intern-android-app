@@ -3,7 +3,7 @@
  * Ejemplo: formatCurrency(1250.5) -> "$1.250,50"
  */
 export function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('es-EC', {
+  return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 2,

@@ -49,22 +49,9 @@ export function BrandSelect({
         onPress={() => setOpen(true)}
       >
         <Ionicons
-          name="pricetags-outline"
-          size={10}
-          color={isFiltered ? colors.onPrimary : colors.grayDark}
-        />
-
-        <Text
-          style={[styles.triggerText, isFiltered && styles.triggerTextActive]}
-          numberOfLines={1}
-        >
-          {isFiltered ? selectedBrand : 'Marca'}
-        </Text>
-
-        <Ionicons
-          name="chevron-down"
-          size={14}
-          color={isFiltered ? colors.onPrimary : colors.grayDark}
+          name="funnel"
+          size={18}
+          color={isFiltered ? colors.black : '#FFFFFF'}
         />
       </TouchableOpacity>
 
@@ -131,33 +118,21 @@ export function BrandSelect({
 
 const styles = StyleSheet.create({
   trigger: {
-    flexDirection: 'row',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#1A1A1A',
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.sm + spacing.xs,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    maxWidth: 130,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
 
   triggerActive: {
     backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-
-  triggerText: {
-    ...typography.body,
-    fontSize: 13,
-    color: colors.grayDark,
-    fontWeight: '600',
-    flexShrink: 1,
-  },
-
-  triggerTextActive: {
-    color: colors.onPrimary,
   },
 
   backdrop: {

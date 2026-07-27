@@ -11,22 +11,30 @@ interface ScreenContainerProps extends PropsWithChildren {
    * Si es false solamente crea el SafeArea.
    */
   scroll?: boolean;
+  /**
+   * Si es true, indica que la pantalla ya muestra una cabecera nativa (headerShown: true)
+   * y por tanto desactiva el inset superior de SafeAreaView para evitar doble espaciado.
+   */
+  hasHeader?: boolean;
 }
 
 export function ScreenContainer({
   children,
   scroll = true,
+  hasHeader = false,
 }: ScreenContainerProps) {
+  const edges = hasHeader ? [] : (['top'] as const);
+
   if (!scroll) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <SafeAreaView style={styles.safeArea} edges={edges}>
         <View style={styles.nonScrollContent}>{children}</View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView style={styles.safeArea} edges={edges}>
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"

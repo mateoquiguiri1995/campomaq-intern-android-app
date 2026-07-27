@@ -25,24 +25,23 @@ export function CategoryChip({ label, selected, onPress }: CategoryChipProps) {
 const styles = StyleSheet.create({
   chip: {
     borderRadius: radius.pill,
-    paddingHorizontal: spacing.sm + spacing.xs,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.surface,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#EAEAEA',
   },
   chipSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: '#1A1A1A',
+    borderColor: '#1A1A1A',
   },
   label: {
-    ...typography.body,
     fontSize: 13,
-    color: colors.grayDark,
-    fontWeight: '500',
+    color: '#666666',
+    fontWeight: '600',
   },
   labelSelected: {
-    color: colors.onPrimary,
-    fontWeight: '600',
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
 });

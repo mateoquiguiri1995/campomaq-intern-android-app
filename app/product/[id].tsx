@@ -27,7 +27,7 @@ export default function ProductDetailScreen() {
 
   if (!product) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasHeader>
         <Stack.Screen options={{ headerShown: true, title: 'Detalle' }} />
 
         <View style={styles.center}>
@@ -41,7 +41,7 @@ export default function ProductDetailScreen() {
   }
 
   return (
-    <ScreenContainer>
+    <ScreenContainer hasHeader>
       <Stack.Screen
         options={{
           headerShown: true,

@@ -31,7 +31,7 @@ export type QuoteClient =
   | { kind: 'registered'; client: Client }
   | { kind: 'manual'; client: ManualClientInfo };
 
-export type QuoteStatus = 'draft' | 'generated';
+export type QuoteStatus = 'Pendiente' | 'Enviada' | 'Aceptada' | 'Rechazada';
 
 export interface Quote {
   id: string;

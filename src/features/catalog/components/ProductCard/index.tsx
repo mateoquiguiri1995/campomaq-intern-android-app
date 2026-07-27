@@ -1,11 +1,8 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { colors } from '@/theme/colors';
-import { radius, spacing } from '@/theme/spacing';
-
+import { spacing } from '@/theme/spacing';
 import type { Product } from '../../types';
 
-import { ProductActions } from './ProductActions';
 import { ProductImage } from './ProductImage';
 import { ProductInfo } from './ProductInfo';
 
@@ -27,15 +24,10 @@ export function ProductCard({
         <ProductImage
           code={product.code}
           imageUrl={product.imageUrl}
-          isNew={product.isNew}
         />
 
         <View style={styles.rightColumn}>
           <ProductInfo product={product} />
-
-          <ProductActions
-            onPress={() => onPressDetails?.(product)}
-          />
         </View>
       </View>
     </Pressable>
@@ -44,34 +36,23 @@ export function ProductCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.surface,
-
-    borderRadius: radius.md,
-
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     borderWidth: 1,
-
-    borderColor: colors.border,
-
-    padding: spacing.sm,
+    borderColor: '#EAEAEA',
+    padding: 10,
   },
-
   cardPressed: {
-    backgroundColor: colors.background,
+    backgroundColor: '#FAFAFA',
   },
-
   content: {
     flexDirection: 'row',
-
-    alignItems: 'flex-start',
-
-    gap: spacing.sm,
+    alignItems: 'center',
+    gap: 12,
   },
-
   rightColumn: {
     flex: 1,
-
-    justifyContent: 'space-between',
-
     alignSelf: 'stretch',
+    justifyContent: 'center',
   },
 });

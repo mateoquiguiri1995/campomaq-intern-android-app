@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/common/Button';
@@ -18,6 +18,19 @@ import { typography } from '@/theme/typography';
 export default function SelectClientScreen() {
   const router = useRouter();
   const { setClient } = useQuoteBuilder();
+  const { clientId, clientData } = useLocalSearchParams<{ clientId?: string; clientData?: string }>();
+
+  useEffect(() => {
+    if (clientId && clientData) {
+      try {
+        const parsedClient = JSON.parse(clientData) as Client;
+        setClient({ kind: 'registered', client: parsedClient });
+        router.replace('/quotes/select-products');
+      } catch (e) {
+        console.error('Error automatic-selecting client', e);
+      }
+    }
+  }, [clientId, clientData]);
 
   const {
     clients: filteredClients,

@@ -15,6 +15,7 @@ export interface Client {
   score?: ClientScore;
   /** Indica si el cliente tiene crédito pendiente. Todavía no llega desde la API. */
   hasPendingCredit?: boolean;
+  lastPurchaseDate?: string;
 }
 
 export type ClientScore = 'A+' | 'A' | 'B';
@@ -39,4 +40,5 @@ export interface ClientDetail extends Client {
   scoreLabel: string;
   notes: string[];
   invoices: ClientInvoice[];
+  contactName?: string;
 }

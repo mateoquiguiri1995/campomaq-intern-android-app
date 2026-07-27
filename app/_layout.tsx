@@ -12,6 +12,7 @@ import {
 
 import { AuthProvider, useAuth } from '@/features/auth/AuthProvider';
 import { AppBootstrapProvider, useAppBootstrap } from '@/features/bootstrap/AppBootstrapProvider';
+import { QuoteBuilderProvider } from '@/features/quotes/QuoteBuilderProvider';
 import { LoadingScreen } from '@/components/common/LoadingScreen';
 import { SalesLoadingScreen } from '@/components/common/SalesLoadingScreen';
 
@@ -48,8 +49,10 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <AppBootstrapProvider>
-        <StatusBar style="dark" />
-        <RootNavigator key={SESSION_MOUNT_KEY} />
+        <QuoteBuilderProvider>
+          <StatusBar style="dark" />
+          <RootNavigator key={SESSION_MOUNT_KEY} />
+        </QuoteBuilderProvider>
       </AppBootstrapProvider>
     </AuthProvider>
   );

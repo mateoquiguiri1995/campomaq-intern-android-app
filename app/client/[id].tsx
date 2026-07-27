@@ -1,6 +1,7 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ScreenContainer } from '@/components/common/ScreenContainer';
 import { ClientDetail } from '@/features/clients/components/ClientDetail';
@@ -46,15 +47,20 @@ export default function ClientDetailScreen() {
   }, [data]);
 
   return (
-    <ScreenContainer>
+    <ScreenContainer hasHeader>
       <Stack.Screen
         options={{
           headerShown: true,
-          title: 'Ficha del cliente',
+          title: 'Ficha de cliente',
           headerBackTitle: 'Clientes',
           headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.black,
           headerShadowVisible: false,
+          headerRight: () => (
+            <Pressable style={{ marginRight: spacing.sm }}>
+              <Ionicons name="notifications" size={22} color={colors.black} />
+            </Pressable>
+          ),
         }}
       />
 

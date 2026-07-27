@@ -37,6 +37,7 @@ interface QuoteBuilderContextValue {
   saveDraft: () => Promise<Quote>;
   /** Persiste el estado actual como "generada" (ya se creó/compartió el PDF). */
   markGenerated: () => Promise<Quote>;
+  resetBuilder: () => void;
 }
 
 const QuoteBuilderContext = createContext<QuoteBuilderContextValue | null>(null);
@@ -45,14 +46,14 @@ export function QuoteBuilderProvider({ children }: PropsWithChildren) {
   const [id, setId] = useState(generateId);
   const [client, setClientState] = useState<QuoteClient | null>(null);
   const [items, setItems] = useState<QuoteItem[]>([]);
-  const [status, setStatus] = useState<QuoteStatus>('draft');
+  const [status, setStatus] = useState<QuoteStatus>('Pendiente');
   const [createdAt, setCreatedAt] = useState(() => new Date().toISOString());
 
   const resetBuilder = useCallback(() => {
     setId(generateId());
     setClientState(null);
     setItems([]);
-    setStatus('draft');
+    setStatus('Pendiente');
     setCreatedAt(new Date().toISOString());
   }, []);
 
@@ -113,8 +114,8 @@ export function QuoteBuilderProvider({ children }: PropsWithChildren) {
     [id, client, items, createdAt]
   );
 
-  const saveDraft = useCallback(() => persist('draft'), [persist]);
-  const markGenerated = useCallback(() => persist('generated'), [persist]);
+  const saveDraft = useCallback(() => persist('Pendiente'), [persist]);
+  const markGenerated = useCallback(() => persist('Enviada'), [persist]);
 
   const value = useMemo<QuoteBuilderContextValue>(
     () => ({
@@ -129,8 +130,9 @@ export function QuoteBuilderProvider({ children }: PropsWithChildren) {
       loadDraft,
       saveDraft,
       markGenerated,
+      resetBuilder,
     }),
-    [id, client, items, status, setClient, addItem, updateItem, removeItem, loadDraft, saveDraft, markGenerated]
+    [id, client, items, status, setClient, addItem, updateItem, removeItem, loadDraft, saveDraft, markGenerated, resetBuilder]
   );
 
   return <QuoteBuilderContext.Provider value={value}>{children}</QuoteBuilderContext.Provider>;

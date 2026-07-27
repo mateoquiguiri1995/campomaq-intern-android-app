@@ -33,8 +33,8 @@ export function DraftQuoteCard({ quote, onPress, onDelete }: DraftQuoteCardProps
         <Text style={styles.meta}>
           {quote.items.length} producto(s) · {date}
         </Text>
-        <Text style={[styles.status, quote.status === 'generated' ? styles.statusGenerated : styles.statusDraft]}>
-          {quote.status === 'generated' ? 'PDF generado' : 'Borrador'}
+        <Text style={[styles.status, (quote.status === 'Enviada' || quote.status === 'Aceptada') ? styles.statusGenerated : styles.statusDraft]}>
+          {(quote.status === 'Enviada' || quote.status === 'Aceptada') ? 'PDF generado' : 'Borrador'}
         </Text>
       </View>
 
