@@ -14,7 +14,7 @@ export function useCatalog() {
     allProducts,
     isLoadingAllProducts,
     isLoading: bootLoading,
-    error: bootError,
+    productsError,
     reload,
   } = useAppBootstrap();
 
@@ -199,7 +199,7 @@ export function useCatalog() {
     // reemplazar toda la pantalla por un spinner en cada letra escrita.
     searchLoading,
 
-    error: bootError,
+    error: productsError,
 
     products: visibleProducts,
 

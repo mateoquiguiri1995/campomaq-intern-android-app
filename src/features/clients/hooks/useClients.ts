@@ -8,7 +8,12 @@ const PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 400;
 
 export function useClients() {
-  const { clients: bootClients, clientsTotal: bootClientsTotal, isLoading: bootLoading } = useAppBootstrap();
+  const {
+    clients: bootClients,
+    clientsTotal: bootClientsTotal,
+    clientsError: bootClientsError,
+    isLoading: bootLoading,
+  } = useAppBootstrap();
 
   const [clients, setClients] = useState<Client[]>(bootClients);
   const [loading, setLoading] = useState(true);
@@ -17,7 +22,7 @@ export function useClients() {
   // mantiene visible hasta que llega la respuesta nueva).
   const [searchLoading, setSearchLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(bootClientsError);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(bootClientsTotal);

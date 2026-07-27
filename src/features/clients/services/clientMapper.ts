@@ -9,5 +9,7 @@ export function mapApiClient(apiClient: ApiClient): Client {
     email: apiClient.email,
     phone: apiClient.phonePrimary,
     location: apiClient.address,
+    score: apiClient.score,
+    hasPendingCredit: apiClient.hasPendingCredit,
   };
 }

@@ -5,8 +5,10 @@ import { AppHeader } from '@/components/common/AppHeader';
 import { ScreenContainer } from '@/components/common/ScreenContainer';
 import { BrandSelect } from '@/features/catalog/components/BrandSelect';
 import { CategoryChip } from '@/features/catalog/components/CategoryChip';
+import { MonthlyGoalCard } from '@/features/catalog/components/MonthlyGoalCard';
 import { ProductList } from '@/features/catalog/components/ProductList';
 import { useCatalog } from '@/features/catalog/hooks/useCatalog';
+import { useMonthlyGoal } from '@/features/catalog/hooks/useMonthlyGoal';
 import type { Product } from '@/features/catalog/types';
 import { colors } from '@/theme/colors';
 import { radius, spacing } from '@/theme/spacing';
@@ -23,6 +25,7 @@ import {
 /** Pestaña Catálogo. */
 export default function CatalogScreen() {
   const router = useRouter();
+  const { goal } = useMonthlyGoal();
 
   const {
     products,
@@ -171,6 +174,8 @@ export default function CatalogScreen() {
           onSelectBrand={setSelectedBrand}
         />
       </View>
+
+      <MonthlyGoalCard goal={goal} />
 
       <ProductList
         products={products}

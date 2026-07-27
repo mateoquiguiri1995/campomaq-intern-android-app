@@ -56,8 +56,8 @@ export default function RootLayout() {
 }
 
 function RootNavigator() {
-  const { session, isLoading, hasSession } = useAuth();
-  const { isLoading: isBootstrapping, progress: bootstrapProgress, error, reload } = useAppBootstrap();
+  const { session, isLoading, hasSession, profileError, retryProfile } = useAuth();
+  const { isLoading: isBootstrapping, progress: bootstrapProgress } = useAppBootstrap();
   const [showSplash, setShowSplash] = useState(true);
   const [showSalesSplash, setShowSalesSplash] = useState(false);
   const prevHasSession = useRef(hasSession);
@@ -93,14 +93,14 @@ function RootNavigator() {
   // hasSession ya es true (login recién hecho o sesión persistida): a partir
   // de acá /auth/me y la precarga de productos/clientes corren en paralelo,
   // así que se muestra una sola pantalla de carga hasta que ambos terminen.
-  if (hasSession && error) {
+  if (hasSession && profileError) {
     return (
       <LoadingScreen
-        title="No pudimos preparar la app"
+        title="No pudimos cargar tu perfil"
         subtitle="Revisa tu conexión e inténtalo de nuevo."
-        detail={error}
+        detail={profileError}
         actionLabel="Reintentar"
-        onAction={reload}
+        onAction={retryProfile}
       />
     );
   }
@@ -124,6 +124,7 @@ function RootNavigator() {
       <Stack.Protected guard={!!session}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="product/[id]" />
+        <Stack.Screen name="client/[id]" />
         <Stack.Screen name="quotes" />
       </Stack.Protected>
       <Stack.Protected guard={!session}>

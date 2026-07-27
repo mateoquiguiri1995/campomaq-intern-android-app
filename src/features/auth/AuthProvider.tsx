@@ -18,9 +18,12 @@ interface AuthContextValue {
    * esperar a que `session` (perfil completo) esté listo.
    */
   hasSession: boolean;
+  /** Error temporal al cargar el perfil del vendedor. */
+  profileError: string | null;
   loginWithPassword: (credentials: LoginCredentials) => Promise<void>;
   logout: () => Promise<void>;
   updateAvatar: (uri: string) => Promise<void>;
+  retryProfile: () => Promise<void>;
 }
 
 interface MeResponse {
@@ -127,6 +130,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [hasSession, setHasSession] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   async function loadProfile(accessToken: string) {
     try {
@@ -143,15 +147,20 @@ export function AuthProvider({ children }: PropsWithChildren) {
         },
         token: accessToken,
       });
+      setProfileError(null);
     } catch (error) {
       console.warn('[Auth] /auth/me falló:', error);
       // Token sin cuenta de vendedor activa (403) o inválido (401): no hay
       // forma de continuar, se cierra la sesión. Otros errores (red, 500)
       // ya fueron manejados/reintentados por el cliente HTTP.
       if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+        setProfileError(null);
         await supabase.auth.signOut();
+        return;
       }
-      setSession(null);
+      // Una caÃ­da temporal de /auth/me no invalida la sesiÃ³n de Supabase.
+      // Se conserva la sesiÃ³n preliminar para que el usuario pueda reintentar.
+      setProfileError(error instanceof Error ? error.message : 'No fue posible cargar tu perfil.');
     }
   }
 
@@ -164,6 +173,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       if (!newSession) {
         setHasSession(false);
         setSession(null);
+        setProfileError(null);
         setIsLoading(false);
         return;
       }
@@ -182,6 +192,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       });
 
       setHasSession(true);
+      setProfileError(null);
       setIsLoading(true);
       await loadProfile(newSession.access_token);
       if (isMounted) setIsLoading(false);
@@ -207,8 +218,28 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setSession({ ...session, user: { ...session.user, avatar: uri } });
   }
 
+  async function retryProfile() {
+    if (!session) return;
+
+    setProfileError(null);
+    setIsLoading(true);
+    await loadProfile(session.token);
+    setIsLoading(false);
+  }
+
   return (
-    <AuthContext.Provider value={{ session, isLoading, hasSession, loginWithPassword, logout, updateAvatar }}>
+    <AuthContext.Provider
+      value={{
+        session,
+        isLoading,
+        hasSession,
+        profileError,
+        loginWithPassword,
+        logout,
+        updateAvatar,
+        retryProfile,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

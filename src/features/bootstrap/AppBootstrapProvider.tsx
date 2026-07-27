@@ -13,13 +13,16 @@ interface AppBootstrapContextValue {
   productsHasMore: boolean;
   clients: Client[];
   clientsTotal: number;
+  /** Error de la carga inicial de productos. No bloquea el resto de la app. */
+  productsError: string | null;
+  /** Error de la carga inicial de clientes. No bloquea el resto de la app. */
+  clientsError: string | null;
   /** Catálogo completo, para filtrar por búsqueda/categoría/marca. Se carga
    *  en segundo plano después del arranque rápido; null hasta que esté listo. */
   allProducts: Product[] | null;
   isLoadingAllProducts: boolean;
   isLoading: boolean;
   progress: number;
-  error: string | null;
   reload: () => void;
 }
 
@@ -36,7 +39,8 @@ export function AppBootstrapProvider({ children }: PropsWithChildren) {
   const [isLoadingAllProducts, setIsLoadingAllProducts] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [error, setError] = useState<string | null>(null);
+  const [productsError, setProductsError] = useState<string | null>(null);
+  const [clientsError, setClientsError] = useState<string | null>(null);
   const [reloadIndex, setReloadIndex] = useState(0);
 
   // Arranque rápido: solo la primera página de productos y clientes. Se
@@ -52,7 +56,8 @@ export function AppBootstrapProvider({ children }: PropsWithChildren) {
       setClients([]);
       setClientsTotal(0);
       setAllProducts(null);
-      setError(null);
+      setProductsError(null);
+      setClientsError(null);
       setIsLoading(false);
       setProgress(0);
       return () => {
@@ -61,16 +66,15 @@ export function AppBootstrapProvider({ children }: PropsWithChildren) {
     }
 
     setIsLoading(true);
-    setError(null);
+    setProductsError(null);
+    setClientsError(null);
     setAllProducts(null);
     setProgress(10); // Empezamos en 10%
 
     let productsDone = false;
     let clientsDone = false;
-    let hasFailed = false;
-
     const checkComplete = () => {
-      if (!isMounted || hasFailed) return;
+      if (!isMounted) return;
       if (productsDone && clientsDone) {
         setProgress(100);
         setIsLoading(false);
@@ -89,11 +93,11 @@ export function AppBootstrapProvider({ children }: PropsWithChildren) {
       })
       .catch((err) => {
         if (!isMounted) return;
-        hasFailed = true;
         setProducts([]);
         setProductsHasMore(false);
-        setError(err instanceof Error ? err.message : 'No fue posible preparar los datos de la app.');
-        setIsLoading(false);
+        setProductsError(err instanceof Error ? err.message : 'No fue posible cargar los productos.');
+        productsDone = true;
+        checkComplete();
       });
 
     getClients({ page: 1, pageSize: CLIENTS_PRELOAD_PAGE_SIZE })
@@ -106,11 +110,11 @@ export function AppBootstrapProvider({ children }: PropsWithChildren) {
       })
       .catch((err) => {
         if (!isMounted) return;
-        hasFailed = true;
         setClients([]);
         setClientsTotal(0);
-        setError(err instanceof Error ? err.message : 'No fue posible preparar los datos de la app.');
-        setIsLoading(false);
+        setClientsError(err instanceof Error ? err.message : 'No fue posible cargar los clientes.');
+        clientsDone = true;
+        checkComplete();
       });
 
     return () => {
@@ -121,7 +125,7 @@ export function AppBootstrapProvider({ children }: PropsWithChildren) {
   // Segundo paso, en segundo plano: trae el resto del catálogo para poder
   // filtrar por búsqueda/categoría/marca sin bloquear la pantalla de carga.
   useEffect(() => {
-    if (!hasSession || isLoading || error) return;
+    if (!hasSession || isLoading || productsError) return;
 
     let isMounted = true;
     setIsLoadingAllProducts(true);
@@ -143,7 +147,7 @@ export function AppBootstrapProvider({ children }: PropsWithChildren) {
       isMounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasSession, isLoading, error, reloadIndex]);
+  }, [hasSession, isLoading, productsError, reloadIndex]);
 
   const reload = useCallback(() => {
     setReloadIndex((current) => current + 1);
@@ -155,14 +159,27 @@ export function AppBootstrapProvider({ children }: PropsWithChildren) {
       productsHasMore,
       clients,
       clientsTotal,
+      productsError,
+      clientsError,
       allProducts,
       isLoadingAllProducts,
       isLoading,
       progress,
-      error,
       reload,
     }),
-    [products, productsHasMore, clients, clientsTotal, allProducts, isLoadingAllProducts, isLoading, progress, error, reload]
+    [
+      products,
+      productsHasMore,
+      clients,
+      clientsTotal,
+      productsError,
+      clientsError,
+      allProducts,
+      isLoadingAllProducts,
+      isLoading,
+      progress,
+      reload,
+    ]
   );
 
   return <AppBootstrapContext.Provider value={value}>{children}</AppBootstrapContext.Provider>;

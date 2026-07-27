@@ -11,6 +11,8 @@ export interface ApiClient {
   email?: string;
   phonePrimary?: string;
   phoneSecondary?: string | null;
+  score?: 'A+' | 'A' | 'B';
+  hasPendingCredit?: boolean;
 }
 
 export interface ApiClientsPage {
