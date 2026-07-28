@@ -5,7 +5,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-
+import { styles } from '@/theme/styles/src_features_catalog_components_ProductCard_ProductActions';
 import { colors } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 
@@ -43,32 +43,3 @@ export function ProductActions({
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    marginTop: spacing.xs,
-
-    paddingTop: spacing.xs,
-
-    borderTopWidth: 1,
-
-    borderTopColor: colors.border,
-  },
-
-  button: {
-    flexDirection: 'row',
-
-    alignItems: 'center',
-
-    justifyContent: 'flex-end',
-
-    gap: 4,
-  },
-
-  text: {
-    fontSize: 12,
-
-    color: colors.primaryDark,
-
-    fontWeight: '600',
-  },
-});

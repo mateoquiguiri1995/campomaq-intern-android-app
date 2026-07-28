@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
-
+import { styles } from '@/theme/styles/app_product_id_';
 import { ScreenContainer } from '@/components/common/ScreenContainer';
 import { ProductDetail } from '@/features/catalog/components/ProductDetail';
 import type { Product } from '@/features/catalog/types';
@@ -58,16 +58,3 @@ export default function ProductDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-
-  message: {
-    textAlign: 'center',
-    color: colors.grayDark,
-  },
-});

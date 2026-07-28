@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-
+import { styles } from '@/theme/styles/app_quotes_select-client';
 import { Button } from '@/components/common/Button';
 import { ScreenContainer } from '@/components/common/ScreenContainer';
 import { TextField } from '@/components/common/TextField';
@@ -158,65 +158,3 @@ export default function SelectClientScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  searchRow: {
-    justifyContent: 'center',
-  },
-  searchIcon: {
-    position: 'absolute',
-    left: spacing.sm + spacing.xs,
-    zIndex: 1,
-  },
-  searchInput: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingLeft: spacing.xl + spacing.xs,
-    paddingRight: spacing.md,
-    paddingVertical: spacing.sm + spacing.xs,
-    fontSize: 15,
-    color: colors.black,
-  },
-  manualToggle: {
-    alignSelf: 'flex-start',
-  },
-  manualToggleText: {
-    ...typography.body,
-    color: colors.primaryDark,
-    fontWeight: '600',
-  },
-  manualForm: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    gap: spacing.md,
-  },
-  manualHint: {
-    ...typography.caption,
-    color: colors.grayDark,
-  },
-  list: {
-    gap: spacing.md,
-  },
-  center: {
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  helperText: {
-    ...typography.caption,
-    color: colors.grayDark,
-  },
-  emptyText: {
-    ...typography.body,
-    color: colors.grayDark,
-    textAlign: 'center',
-  },
-  errorText: {
-    ...typography.body,
-    color: colors.danger,
-    textAlign: 'center',
-  },
-});

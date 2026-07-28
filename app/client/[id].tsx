@@ -57,7 +57,7 @@ export default function ClientDetailScreen() {
           headerTintColor: colors.black,
           headerShadowVisible: false,
           headerRight: () => (
-            <Pressable style={{ marginRight: spacing.sm }}>
+            <Pressable style={inlineLayoutStyles.clientHeaderAction}>
               <Ionicons name="notifications" size={22} color={colors.black} />
             </Pressable>
           ),
@@ -82,16 +82,5 @@ export default function ClientDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  message: {
-    marginTop: spacing.md,
-    textAlign: 'center',
-    color: colors.grayDark,
-  },
-});
+import { styles } from '@/theme/styles/app_client_id_';
+import { inlineLayoutStyles } from '@/theme/styles/inlineLayout';

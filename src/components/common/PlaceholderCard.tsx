@@ -24,31 +24,4 @@ export function PlaceholderCard({ title, description, icon }: PlaceholderCardPro
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.xl,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  icon: {
-    fontSize: 28,
-  },
-  textContainer: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  title: {
-    ...typography.subtitle,
-    color: colors.black,
-    fontWeight: '600',
-  },
-  description: {
-    ...typography.body,
-    color: colors.grayDark,
-  },
-});
+import { styles } from '@/theme/styles/src_components_common_PlaceholderCard';

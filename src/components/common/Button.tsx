@@ -34,30 +34,4 @@ export function Button({ label, variant = 'primary', icon, disabled, ...pressabl
   );
 }
 
-const styles = StyleSheet.create({
-  base: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.md,
-  },
-  primary: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  disabled: {
-    opacity: 0.5,
-  },
-  primaryLabel: {
-    ...typography.button,
-    color: colors.onPrimary,
-  },
-  ghostLabel: {
-    ...typography.button,
-    color: colors.black,
-  },
-});
+import { styles } from '@/theme/styles/src_components_common_Button';

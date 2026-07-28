@@ -25,15 +25,4 @@ export function ClientAvatar({ name, size = 48 }: ClientAvatarProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  avatar: {
-    backgroundColor: colors.black,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  initials: {
-    ...typography.subtitle,
-    color: colors.primary,
-    fontWeight: '700',
-  },
-});
+import { styles } from '@/theme/styles/src_features_clients_components_ClientAvatar';

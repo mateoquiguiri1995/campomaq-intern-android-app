@@ -45,21 +45,4 @@ export function ScreenContainer({
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-
-  content: {
-    flexGrow: 1,
-    padding: spacing.md,
-    gap: spacing.md,
-  },
-
-  nonScrollContent: {
-    flex: 1,
-    padding: spacing.md,
-    gap: spacing.md,
-  },
-});
+import { styles } from '@/theme/styles/src_components_common_ScreenContainer';
