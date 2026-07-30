@@ -7,7 +7,6 @@ import { Button } from '@/components/common/Button';
 import { ScreenContainer } from '@/components/common/ScreenContainer';
 import { TextField } from '@/components/common/TextField';
 import { ClientCard } from '@/features/clients/components/ClientCard';
-import { getClients } from '@/features/clients/services/clientService';
 import { useClients } from '@/features/clients/hooks/useClients';
 import type { Client } from '@/features/clients/types';
 import { useQuoteBuilder } from '@/features/quotes/QuoteBuilderProvider';
@@ -19,7 +18,19 @@ import { typography } from '@/theme/typography';
 export default function SelectClientScreen() {
   const router = useRouter();
   const { setClient } = useQuoteBuilder();
-  const { clientId } = useLocalSearchParams<{ clientId?: string }>();
+  const { clientId, clientData } = useLocalSearchParams<{ clientId?: string; clientData?: string }>();
+
+  useEffect(() => {
+    if (clientId && clientData) {
+      try {
+        const parsedClient = JSON.parse(clientData) as Client;
+        setClient({ kind: 'registered', client: parsedClient });
+        router.replace('/quotes/select-products');
+      } catch (e) {
+        console.error('Error automatic-selecting client', e);
+      }
+    }
+  }, [clientId, clientData]);
 
   const {
     clients: filteredClients,
@@ -34,26 +45,6 @@ export default function SelectClientScreen() {
     loadMore,
     refresh,
   } = useClients();
-
-  useEffect(() => {
-    if (clientId) {
-      let found = filteredClients.find(c => c.id === clientId);
-      if (found) {
-        setClient({ kind: 'registered', client: found });
-        router.replace('/quotes/select-products');
-      } else if (!isLoading) {
-        getClients({ q: clientId }).then(res => {
-          const match = res.clients.find(c => c.id === clientId);
-          if (match) {
-            setClient({ kind: 'registered', client: match });
-            router.replace('/quotes/select-products');
-          }
-        }).catch(err => {
-          console.warn('[select-client] Error looking up client by ID:', err);
-        });
-      }
-    }
-  }, [clientId, filteredClients, isLoading]);
 
   const [showManualForm, setShowManualForm] = useState(false);
   const [manualName, setManualName] = useState('');

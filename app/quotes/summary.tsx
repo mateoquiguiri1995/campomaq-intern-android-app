@@ -21,7 +21,7 @@ export default function QuoteSummaryScreen() {
   const router = useRouter();
   const { session } = useAuth();
   const { draftId } = useLocalSearchParams<{ draftId?: string }>();
-  const { client, items, loadDraft, updateItem, removeItem, saveDraft, markGenerated, buildQuote } = useQuoteBuilder();
+  const { client, items, loadDraft, updateItem, removeItem, saveDraft, markGenerated } = useQuoteBuilder();
 
   const [hydrating, setHydrating] = useState(!!draftId);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -51,9 +51,8 @@ export default function QuoteSummaryScreen() {
   async function handleGenerateAndShare() {
     try {
       setGenerating(true);
-      const quote = buildQuote('Enviada');
+      const quote = await markGenerated();
       await shareQuotePdf(quote, session?.user ?? undefined);
-      await markGenerated();
       router.replace('/reports');
     } catch (error) {
       Alert.alert('No se pudo generar el PDF', error instanceof Error ? error.message : 'Intenta de nuevo.');

@@ -1,11 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, router } from 'expo-router';
-import React, { useCallback, useState, useRef, useMemo } from 'react';
+import React, { useCallback, useState, useRef } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View, Modal, Dimensions, Pressable, Image as RNImage, Alert } from 'react-native';
 
 import { ScreenContainer } from '@/components/common/ScreenContainer';
-import { AvatarMenuModal } from '@/components/common/AvatarMenuModal';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { colors } from '@/theme/colors';
 import { radius, spacing } from '@/theme/spacing';
@@ -19,7 +18,6 @@ import type { Client } from '@/features/clients/types';
 import { listQuotes } from '@/features/quotes/services/quoteService';
 import type { Quote, QuoteItem, PriceTier } from '@/features/quotes/types';
 import { formatCurrency } from '@/utils/currency';
-import { useQuoteBuilder } from '@/features/quotes/QuoteBuilderProvider';
 
 function getHeaderDate(): string {
   const date = new Date();
@@ -68,7 +66,6 @@ function formatTimeAgo(dateStr: string): string {
 
 export default function HomeScreen() {
   const { session, logout, updateAvatar } = useAuth();
-  const { startNewQuote } = useQuoteBuilder();
   const user = session?.user;
   const userName = user?.name ? user.name.split(' ')[0] : 'Vendedor';
 
@@ -153,8 +150,8 @@ export default function HomeScreen() {
   };
 
   // 1. Cálculo dinámico de la meta del mes
-  const target = goal?.targetMargin ?? 0;
-  const achieved = goal?.achievedMargin ?? 0;
+  const target = goal?.targetMargin ?? 35700;
+  const achieved = goal?.achievedMargin ?? 24300;
   const pct = target > 0 ? Math.min(100, Math.round((achieved / target) * 100)) : 0;
   const missing = Math.max(0, target - achieved);
 
@@ -169,7 +166,7 @@ export default function HomeScreen() {
 
   const avgTicket = closedSalesCount > 0
     ? Math.round(closedSales.reduce((sum, q) => sum + getQuoteTotal(q), 0) / closedSalesCount)
-    : 0;
+    : 844; // fallback mockup
 
   // 3. Cálculo dinámico de ventas por categoría
   const categoryTotals: Record<string, number> = {
@@ -202,14 +199,18 @@ export default function HomeScreen() {
   });
 
   const categoryPercentages = {
-    'Cultivadores': totalSalesSum > 0 ? Math.round((categoryTotals['Cultivadores'] / totalSalesSum) * 100) : 0,
-    'Motosierras': totalSalesSum > 0 ? Math.round((categoryTotals['Motosierras'] / totalSalesSum) * 100) : 0,
-    'Bombas': totalSalesSum > 0 ? Math.round((categoryTotals['Bombas'] / totalSalesSum) * 100) : 0,
-    'Generadores': totalSalesSum > 0 ? Math.round((categoryTotals['Generadores'] / totalSalesSum) * 100) : 0,
+    'Cultivadores': totalSalesSum > 0 ? Math.round((categoryTotals['Cultivadores'] / totalSalesSum) * 100) : 38,
+    'Motosierras': totalSalesSum > 0 ? Math.round((categoryTotals['Motosierras'] / totalSalesSum) * 100) : 27,
+    'Bombas': totalSalesSum > 0 ? Math.round((categoryTotals['Bombas'] / totalSalesSum) * 100) : 18,
+    'Generadores': totalSalesSum > 0 ? Math.round((categoryTotals['Generadores'] / totalSalesSum) * 100) : 17,
   };
 
   // 4. Ranking de mejores clientes (Dinámico desde la base de datos de clientes)
-  const displayTopClients = topClients.slice(0, 3);
+  const displayTopClients = topClients.length >= 3 ? topClients : [
+    { id: '1', name: 'Florícola San Rafael', totalPurchases: 6320 },
+    { id: '2', name: 'Hacienda La Florida', totalPurchases: 4046.5 },
+    { id: '3', name: 'Vivero Los Andes', totalPurchases: 1250 },
+  ];
 
   // 5. Ranking de productos más vendidos (Calculado dinámicamente desde cotizaciones)
   const productSalesMap: Record<string, { product: Product; qty: number; total: number }> = {};
@@ -224,79 +225,87 @@ export default function HomeScreen() {
     });
   });
   const sortedProducts = Object.values(productSalesMap).sort((a, b) => b.qty - a.qty);
-  const displayTopProducts = sortedProducts.slice(0, 3).map(p => ({
-    name: p.product.name,
-    total: formatCurrency(Math.round(p.total)),
-    subtitle: `${p.qty} ${p.qty === 1 ? 'ud' : 'uds'}`,
-  }));
+  const displayTopProducts = sortedProducts.length > 0
+    ? sortedProducts.slice(0, 3).map(p => ({
+        name: p.product.name,
+        total: formatCurrency(Math.round(p.total)),
+        subtitle: `${p.qty} ${p.qty === 1 ? 'ud' : 'uds'}`,
+      }))
+    : [
+        { name: 'Motocultor Honda FG-650', total: '$11,840', subtitle: '8 uds' },
+        { name: 'Motosierra Husqvarna 455', total: '$3,445', subtitle: '5 uds' },
+        { name: 'Generador 5kW Pramac', total: '$3,360', subtitle: '3 uds' },
+      ];
 
   // 6. Actividades Recientes (Cálculo dinámico basado en cotizaciones y clientes nuevos)
-  const displayActivities = useMemo(() => {
-    const recentActivitiesList: Array<{
-      id: string;
-      icon: keyof typeof Ionicons.glyphMap;
-      title: string;
-      time: string;
-      rightContent: React.ReactNode;
-      timestamp: string;
-    }> = [];
+  const recentActivitiesList: Array<{
+    id: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    title: string;
+    time: string;
+    rightContent: React.ReactNode;
+    timestamp: string;
+  }> = [];
 
-    quotes.forEach(q => {
-      const clientName = q.client.client.name;
-      const total = getQuoteTotal(q);
-      
-      let activityIcon: keyof typeof Ionicons.glyphMap = 'document-text';
-      let activityTitle = '';
-      let activityStyle: any = styles.activityDark;
-      let pricePrefix = '';
+  quotes.forEach(q => {
+    const clientName = q.client.client.name;
+    const total = getQuoteTotal(q);
+    
+    let activityIcon: keyof typeof Ionicons.glyphMap = 'document-text';
+    let activityTitle = '';
+    let activityStyle: any = styles.activityDark;
+    let pricePrefix = '';
 
-      if (q.status === 'Aceptada') {
-        activityIcon = 'cart';
-        activityTitle = `Venta cerrada - ${clientName}`;
-        activityStyle = styles.activityGreen;
-        pricePrefix = '+';
-      } else if (q.status === 'Enviada') {
-        activityIcon = 'document-text';
-        activityTitle = `Cotización enviada - ${clientName}`;
-      } else if (q.status === 'Rechazada') {
-        activityIcon = 'document-text';
-        activityTitle = `Cotización rechazada - ${clientName}`;
-      } else {
-        activityIcon = 'document-text';
-        activityTitle = `Cotización guardada - ${clientName}`;
-      }
+    if (q.status === 'Aceptada') {
+      activityIcon = 'cart';
+      activityTitle = `Venta cerrada - ${clientName}`;
+      activityStyle = styles.activityGreen;
+      pricePrefix = '+';
+    } else if (q.status === 'Enviada') {
+      activityIcon = 'document-text';
+      activityTitle = `Cotización enviada - ${clientName}`;
+    } else if (q.status === 'Rechazada') {
+      activityIcon = 'document-text';
+      activityTitle = `Cotización rechazada - ${clientName}`;
+    } else {
+      activityIcon = 'document-text';
+      activityTitle = `Cotización guardada - ${clientName}`;
+    }
 
+    recentActivitiesList.push({
+      id: q.id,
+      icon: activityIcon,
+      title: activityTitle,
+      time: formatTimeAgo(q.updatedAt),
+      timestamp: q.updatedAt,
+      rightContent: (
+        <Text style={activityStyle}>
+          {pricePrefix}{formatCurrency(Math.round(total))}
+        </Text>
+      ),
+    });
+  });
+
+  // Agregar actividad simulada de clientes recién creados
+  topClients.forEach(c => {
+    if (c.name.includes('Andes')) {
       recentActivitiesList.push({
-        id: q.id,
-        icon: activityIcon,
-        title: activityTitle,
-        time: formatTimeAgo(q.updatedAt),
-        timestamp: q.updatedAt,
-        rightContent: (
-          <Text style={activityStyle}>
-            {pricePrefix}{formatCurrency(Math.round(total))}
-          </Text>
-        ),
+        id: `c-act-${c.id}`,
+        icon: 'people',
+        title: `Nuevo cliente - ${c.name}`,
+        time: 'Ayer',
+        timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+        rightContent: null,
       });
-    });
+    }
+  });
 
-    // Agregar actividad simulada de clientes recién creados
-    topClients.forEach(c => {
-      if (c.name.includes('Andes')) {
-        recentActivitiesList.push({
-          id: `c-act-${c.id}`,
-          icon: 'people',
-          title: `Nuevo cliente - ${c.name}`,
-          time: 'Ayer',
-          timestamp: '2026-07-27T12:00:00.000Z',
-          rightContent: null,
-        });
-      }
-    });
-
-    const sortedActivities = recentActivitiesList.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
-    return sortedActivities.slice(0, 3);
-  }, [quotes, topClients]);
+  const sortedActivities = recentActivitiesList.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  const displayActivities = sortedActivities.length > 0 ? sortedActivities.slice(0, 3) : [
+    { id: 'act-1', icon: 'cart' as const, title: 'Venta cerrada - Hacienda La Florida', time: 'Hace 2 h', rightContent: <Text style={styles.activityGreen}>+$1,689</Text> },
+    { id: 'act-2', icon: 'document-text' as const, title: 'Cotización enviada - Agroindustrial Cotopaxi', time: 'Hace 4 h', rightContent: <Text style={styles.activityDark}>$980</Text> },
+    { id: 'act-3', icon: 'people' as const, title: 'Nuevo cliente - Vivero Los Andes', time: 'Ayer', rightContent: null },
+  ];
 
   return (
     <ScreenContainer scroll={false}>
@@ -384,7 +393,7 @@ export default function HomeScreen() {
         <TouchableOpacity
           style={styles.actionBtn}
           activeOpacity={0.7}
-          onPress={startNewQuote}
+          onPress={() => router.push('/quotes/select-client')}
         >
           <Ionicons name="document-text" size={20} color={colors.black} />
           <Text style={styles.actionBtnText}>Cotizar</Text>
@@ -419,55 +428,43 @@ export default function HomeScreen() {
       {/* Mejores Clientes */}
       <Text style={styles.sectionTitle}>MEJORES CLIENTES</Text>
       <View style={styles.rankingCard}>
-        {displayTopClients.length === 0 ? (
-          <Text style={styles.emptyText}>Sin clientes asignados.</Text>
-        ) : (
-          displayTopClients.map((c, idx) => (
-            <RankingRow
-              key={c.id}
-              index={idx + 1}
-              name={c.name}
-              value={formatCurrency(Math.round(c.totalPurchases ?? 0))}
-              badgeStyle={idx === 0 ? styles.goldBadge : idx === 1 ? styles.silverBadge : styles.bronzeBadge}
-            />
-          ))
-        )}
+        {displayTopClients.map((c, idx) => (
+          <RankingRow
+            key={c.id}
+            index={idx + 1}
+            name={c.name}
+            value={formatCurrency(Math.round(c.totalPurchases ?? 0))}
+            badgeStyle={idx === 0 ? styles.goldBadge : idx === 1 ? styles.silverBadge : styles.bronzeBadge}
+          />
+        ))}
       </View>
 
       {/* Top Productos */}
       <Text style={styles.sectionTitle}>TOP PRODUCTOS DEL MES</Text>
       <View style={styles.rankingCard}>
-        {displayTopProducts.length === 0 ? (
-          <Text style={styles.emptyText}>Sin productos cotizados.</Text>
-        ) : (
-          displayTopProducts.map((p, idx) => (
-            <ProductRankingRow
-              key={idx}
-              index={idx + 1}
-              name={p.name}
-              total={p.total}
-              subtitle={p.subtitle}
-            />
-          ))
-        )}
+        {displayTopProducts.map((p, idx) => (
+          <ProductRankingRow
+            key={idx}
+            index={idx + 1}
+            name={p.name}
+            total={p.total}
+            subtitle={p.subtitle}
+          />
+        ))}
       </View>
 
       {/* Actividad Reciente */}
       <Text style={styles.sectionTitle}>ACTIVIDAD RECIENTE</Text>
       <View style={styles.activityCard}>
-        {displayActivities.length === 0 ? (
-          <Text style={styles.emptyText}>Sin actividad reciente.</Text>
-        ) : (
-          displayActivities.map((act) => (
-            <ActivityRow
-              key={act.id}
-              icon={act.icon}
-              title={act.title}
-              time={act.time}
-              rightContent={act.rightContent}
-            />
-          ))
-        )}
+        {displayActivities.map((act) => (
+          <ActivityRow
+            key={act.id}
+            icon={act.icon}
+            title={act.title}
+            time={act.time}
+            rightContent={act.rightContent}
+          />
+        ))}
       </View>
     </ScrollView>
 
@@ -475,19 +472,32 @@ export default function HomeScreen() {
       <TouchableOpacity
         style={styles.fab}
         activeOpacity={0.7}
-        onPress={startNewQuote}
+        onPress={() => router.push('/quotes/select-client')}
       >
         <Ionicons name="add" size={28} color={colors.black} />
       </TouchableOpacity>
 
       {/* Modal del Menu de Avatar (Cerrar Sesión) */}
-      <AvatarMenuModal
+      <Modal
         visible={menuVisible}
-        onClose={() => setMenuVisible(false)}
-        anchor={menuAnchor}
-        onPickPhoto={handlePickPhoto}
-        onLogout={handleLogout}
-      />
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMenuVisible(false)}
+      >
+        <Pressable style={styles.overlay} onPress={() => setMenuVisible(false)}>
+          <View style={[styles.menu, { top: menuAnchor.top, right: menuAnchor.right }]}>
+            <TouchableOpacity style={styles.menuItem} onPress={handlePickPhoto} activeOpacity={0.7}>
+              <Ionicons name="camera-outline" size={18} color={colors.black} />
+              <Text style={styles.menuItemText}>Cambiar foto</Text>
+            </TouchableOpacity>
+            <View style={styles.menuDivider} />
+            <TouchableOpacity style={styles.menuItem} onPress={handleLogout} activeOpacity={0.7}>
+              <Ionicons name="log-out-outline" size={18} color={colors.danger} />
+              <Text style={[styles.menuItemText, styles.menuItemDanger]}>Cerrar sesión</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
     </ScreenContainer>
   );
 }

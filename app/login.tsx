@@ -54,7 +54,7 @@ export default function LoginScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
 
   // Animación del halo / brillo y el tamaño del logo
-  const [pulseAnim] = useState(() => new Animated.Value(0));
+  const pulseAnim = useRef(new Animated.Value(0)).current;
 
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 

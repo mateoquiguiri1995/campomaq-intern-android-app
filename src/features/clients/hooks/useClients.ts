@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useRef, useState } from 'react';
 
 import { useAppBootstrap } from '@/features/bootstrap/AppBootstrapProvider';
@@ -11,6 +10,7 @@ const SEARCH_DEBOUNCE_MS = 400;
 export function useClients() {
   const {
     clients: bootClients,
+    clientsTotal: bootClientsTotal,
     clientsError: bootClientsError,
     isLoading: bootLoading,
   } = useAppBootstrap();
@@ -25,7 +25,7 @@ export function useClients() {
   const [error, setError] = useState<string | null>(bootClientsError);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
+  const [total, setTotal] = useState(bootClientsTotal);
 
   // Descarta respuestas de búsquedas/páginas que ya quedaron obsoletas.
   const requestId = useRef(0);
@@ -42,9 +42,9 @@ export function useClients() {
 
       if (!query && targetPage === 1 && bootClients.length > 0) {
         if (currentRequest !== requestId.current) return;
-        setClients(bootClients);
+        setClients((prev) => (append ? [...prev, ...bootClients] : bootClients));
         setPage(1);
-        setHasMore(bootClients.length >= PAGE_SIZE);
+        setTotal(bootClientsTotal);
         return;
       }
 
@@ -56,22 +56,9 @@ export function useClients() {
 
       if (currentRequest !== requestId.current) return;
 
-      setClients((prev) => {
-        if (!append) {
-          setHasMore(result.clients.length >= PAGE_SIZE);
-          return result.clients;
-        }
-        const existingIds = new Set(prev.map((c) => c.id));
-        const uniqueNew = result.clients.filter((c) => !existingIds.has(c.id));
-
-        if (uniqueNew.length === 0 || result.clients.length < PAGE_SIZE) {
-          setHasMore(false);
-        } else {
-          setHasMore(true);
-        }
-        return [...prev, ...uniqueNew];
-      });
+      setClients((prev) => (append ? [...prev, ...result.clients] : result.clients));
       setPage(result.page);
+      setTotal(result.total ?? result.clients.length);
     } catch (err) {
       if (currentRequest !== requestId.current) return;
       setError(err instanceof Error ? err.message : 'No fue posible cargar los clientes.');
@@ -88,8 +75,8 @@ export function useClients() {
 
     if (!bootLoading && bootClients.length > 0 && trimmedSearch.length === 0) {
       setClients(bootClients);
+      setTotal(bootClientsTotal);
       setPage(1);
-      setHasMore(bootClients.length >= PAGE_SIZE);
       setLoading(false);
       setSearchLoading(false);
       return;
@@ -104,11 +91,11 @@ export function useClients() {
 
     return () => clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, bootClients, bootLoading]);
+  }, [search, bootClients, bootClientsTotal, bootLoading]);
 
   function loadMore() {
     if (loading || searchLoading || loadingMore) return;
-    if (!hasMore) return;
+    if (clients.length >= total) return;
     loadClients(search.trim(), page + 1, true);
   }
 
@@ -123,7 +110,7 @@ export function useClients() {
     loadingMore,
     error,
     hasClients: clients.length > 0,
-    hasMore,
+    hasMore: clients.length < total,
     hasActiveFilters: search.trim().length > 0,
     search,
     setSearch,

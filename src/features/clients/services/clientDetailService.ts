@@ -3,18 +3,65 @@ import * as Sharing from 'expo-sharing';
 
 import type { Client, ClientDetail, ClientInvoice } from '../types';
 
+function buildMockInvoices(clientId: string): ClientInvoice[] {
+  return [
+    {
+      id: `${clientId}-invoice-1`,
+      issuedAt: '2026-02-18',
+      code: 'F-2028-02091',
+      name: 'Repuestos motosierra (kit)',
+      itemCount: 5,
+      paymentMethod: 'Crédito 30d',
+      status: 'pending',
+      total: 412.50,
+    },
+    {
+      id: `${clientId}-invoice-2`,
+      issuedAt: '2026-01-07',
+      code: 'F-2028-00455',
+      name: 'Desbrozadora FS-128 + arnés',
+      itemCount: 2,
+      paymentMethod: 'Tarjeta',
+      status: 'paid',
+      total: 580.00,
+    },
+    {
+      id: `${clientId}-invoice-3`,
+      issuedAt: '2025-11-15',
+      code: 'F-2025-11820',
+      name: 'Generador 5kW Pramac',
+      itemCount: 1,
+      paymentMethod: 'Transferencia',
+      status: 'paid',
+      total: 1120.00,
+    },
+  ];
+}
+
 /**
  * Obtiene la ficha del cliente.
+ *
+ * Por ahora usa datos mock. Cuando el backend exponga el detalle, reemplazar
+ * este bloque por la llamada comentada sin cambiar la pantalla.
  */
 export async function getClientDetail(client: Client): Promise<ClientDetail> {
+  // const data = await apiGet<ApiClientDetail>(`/clients/${encodeURIComponent(client.id)}`);
+  // return mapApiClientDetail(data);
+
+  const invoices = buildMockInvoices(client.id);
+  const isFlorida = client.name.toLowerCase().includes('florida') || client.name.toLowerCase().includes('hacienda');
+
   return {
     ...client,
-    totalPurchases: 0,
-    purchaseCount: 0,
-    scoreLabel: client.score ?? 'B',
-    contactName: undefined,
-    notes: [],
-    invoices: [],
+    totalPurchases: isFlorida ? 4000 : invoices.reduce((total, invoice) => total + invoice.total, 0),
+    purchaseCount: isFlorida ? 5 : invoices.length,
+    scoreLabel: isFlorida ? 'A+' : 'A',
+    contactName: isFlorida ? 'Juan Vásquez' : 'Representante Legal',
+    notes: [
+      'Prefiere confirmar entregas por llamada telefónica.',
+      'Cliente frecuente de repuestos e implementos agrícolas.',
+    ],
+    invoices,
   };
 }
 

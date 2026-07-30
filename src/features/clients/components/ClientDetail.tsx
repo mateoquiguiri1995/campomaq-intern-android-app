@@ -121,10 +121,21 @@ export function ClientDetail({ client }: ClientDetailProps) {
 
   function handleNewSale() {
     resetBuilder();
+    const clientSummary = {
+      id: client.id,
+      name: client.name,
+      ruc: client.ruc,
+      email: client.email,
+      phone: client.phone,
+      location: client.location,
+      score: client.score,
+      hasPendingCredit: client.hasPendingCredit,
+    };
     router.push({
       pathname: '/quotes/select-client',
       params: {
         clientId: client.id,
+        clientData: JSON.stringify(clientSummary),
       },
     });
   }

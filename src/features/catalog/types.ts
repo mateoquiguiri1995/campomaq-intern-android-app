@@ -25,7 +25,7 @@ export interface Product {
 
   marginPct?: number;
 
-  stockQty?: number | null;
+  stockQty: number;
 
   imageUrl?: string;
 

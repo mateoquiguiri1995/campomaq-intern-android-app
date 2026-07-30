@@ -6,13 +6,24 @@ import { ProductDetail } from '@/features/catalog/components/ProductDetail';
 import type { Product } from '@/features/catalog/types';
 import { colors } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
-import { useAppBootstrap } from '@/features/bootstrap/AppBootstrapProvider';
 
+/**
+ * Pantalla de detalle de producto.
+ *
+ * El backend no tiene un endpoint GET /products/:id, así que el
+ * producto completo viaja serializado como parámetro de navegación
+ * desde la lista del catálogo (que ya lo tiene cargado en memoria).
+ */
 export default function ProductDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const { allProducts, products } = useAppBootstrap();
+  const { data } = useLocalSearchParams<{ id: string; data?: string }>();
 
-  const product = (allProducts ?? products).find((p) => p.id === id) ?? null;
+  let product: Product | null = null;
+
+  try {
+    product = data ? JSON.parse(data) : null;
+  } catch {
+    product = null;
+  }
 
   if (!product) {
     return (

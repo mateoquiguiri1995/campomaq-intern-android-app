@@ -44,14 +44,6 @@ async function request<T>(
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-  if (options.signal) {
-    if (options.signal.aborted) {
-      controller.abort();
-    } else {
-      options.signal.addEventListener('abort', () => controller.abort());
-    }
-  }
-
   let response: Response;
   try {
     console.log('[API]', options.method ?? 'GET', url);

@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState } from 'react';
 import type { MonthlyGoal } from '../types';
 import { getMonthlyGoal } from '../services/goalService';
