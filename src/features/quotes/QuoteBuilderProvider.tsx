@@ -6,6 +6,7 @@ import {
   useState,
   type PropsWithChildren,
 } from 'react';
+import { useRouter } from 'expo-router';
 
 import type { Product } from '../catalog/types';
 import * as quoteService from './services/quoteService';
@@ -38,11 +39,14 @@ interface QuoteBuilderContextValue {
   /** Persiste el estado actual como "generada" (ya se creó/compartió el PDF). */
   markGenerated: () => Promise<Quote>;
   resetBuilder: () => void;
+  buildQuote: (status: QuoteStatus) => Quote;
+  startNewQuote: () => void;
 }
 
 const QuoteBuilderContext = createContext<QuoteBuilderContextValue | null>(null);
 
 export function QuoteBuilderProvider({ children }: PropsWithChildren) {
+  const router = useRouter();
   const [id, setId] = useState(generateId);
   const [client, setClientState] = useState<QuoteClient | null>(null);
   const [items, setItems] = useState<QuoteItem[]>([]);
@@ -56,6 +60,11 @@ export function QuoteBuilderProvider({ children }: PropsWithChildren) {
     setStatus('Pendiente');
     setCreatedAt(new Date().toISOString());
   }, []);
+
+  const startNewQuote = useCallback(() => {
+    resetBuilder();
+    router.push('/quotes/select-client');
+  }, [resetBuilder, router]);
 
   const setClient = useCallback((next: QuoteClient) => setClientState(next), []);
 
@@ -92,13 +101,12 @@ export function QuoteBuilderProvider({ children }: PropsWithChildren) {
     [resetBuilder]
   );
 
-  const persist = useCallback(
-    async (nextStatus: QuoteStatus): Promise<Quote> => {
+  const buildQuote = useCallback(
+    (nextStatus: QuoteStatus): Quote => {
       if (!client) {
-        throw new Error('Selecciona o registra un cliente antes de guardar.');
+        throw new Error('Selecciona o registra un cliente.');
       }
-
-      const quote: Quote = {
+      return {
         id,
         client,
         items,
@@ -106,12 +114,18 @@ export function QuoteBuilderProvider({ children }: PropsWithChildren) {
         createdAt,
         updatedAt: new Date().toISOString(),
       };
+    },
+    [id, client, items, createdAt]
+  );
 
+  const persist = useCallback(
+    async (nextStatus: QuoteStatus): Promise<Quote> => {
+      const quote = buildQuote(nextStatus);
       await quoteService.saveQuote(quote);
       setStatus(nextStatus);
       return quote;
     },
-    [id, client, items, createdAt]
+    [buildQuote]
   );
 
   const saveDraft = useCallback(() => persist('Pendiente'), [persist]);
@@ -131,8 +145,10 @@ export function QuoteBuilderProvider({ children }: PropsWithChildren) {
       saveDraft,
       markGenerated,
       resetBuilder,
+      buildQuote,
+      startNewQuote,
     }),
-    [id, client, items, status, setClient, addItem, updateItem, removeItem, loadDraft, saveDraft, markGenerated, resetBuilder]
+    [id, client, items, status, setClient, addItem, updateItem, removeItem, loadDraft, saveDraft, markGenerated, resetBuilder, buildQuote, startNewQuote]
   );
 
   return <QuoteBuilderContext.Provider value={value}>{children}</QuoteBuilderContext.Provider>;

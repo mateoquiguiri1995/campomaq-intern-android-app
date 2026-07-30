@@ -10,41 +10,48 @@ import type { Client, ClientDetail as ClientDetailType } from '@/features/client
 import { colors } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 
-/** Ficha del cliente. Actualmente usa detalle mock; luego consultará /clients/:id. */
+import { getClients } from '@/features/clients/services/clientService';
+import { useAppBootstrap } from '@/features/bootstrap/AppBootstrapProvider';
+
 export default function ClientDetailScreen() {
-  const { data } = useLocalSearchParams<{ id: string; data?: string }>();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { clients } = useAppBootstrap();
   const [client, setClient] = useState<ClientDetailType | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
 
-    let summary: Client | null = null;
-    try {
-      summary = data ? JSON.parse(data) : null;
-    } catch {
-      summary = null;
+    async function loadDetail() {
+      try {
+        let found = clients.find((c) => c.id === id);
+
+        if (!found) {
+          const res = await getClients({ q: id });
+          found = res.clients.find((c) => c.id === id);
+        }
+
+        if (!found) {
+          throw new Error('Cliente no encontrado');
+        }
+
+        const detail = await getClientDetail(found);
+        if (isMounted) {
+          setClient(detail);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError('No pudimos cargar la ficha del cliente.');
+        }
+      }
     }
 
-    if (!summary) {
-      setError('No pudimos abrir este cliente. Vuelve a la lista e inténtalo de nuevo.');
-      return () => {
-        isMounted = false;
-      };
-    }
-
-    getClientDetail(summary)
-      .then((detail) => {
-        if (isMounted) setClient(detail);
-      })
-      .catch(() => {
-        if (isMounted) setError('No pudimos cargar la ficha del cliente.');
-      });
+    loadDetail();
 
     return () => {
       isMounted = false;
     };
-  }, [data]);
+  }, [id, clients]);
 
   return (
     <ScreenContainer hasHeader>

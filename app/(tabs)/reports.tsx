@@ -10,6 +10,8 @@ import type { Product } from '@/features/catalog/types';
 import { spacing } from '@/theme/spacing';
 import { colors } from '@/theme/colors';
 import { formatCurrency } from '@/utils/currency';
+import { useQuoteBuilder } from '@/features/quotes/QuoteBuilderProvider';
+import { StatusPickerModal } from '@/components/common/StatusPickerModal';
 
 type PeriodType = 'Semana' | 'Mes' | 'Trimestre';
 
@@ -46,6 +48,7 @@ function getQuoteStatusText(quote: Quote): 'Enviada' | 'Aceptada' | 'Pendiente' 
 
 export default function ReportsScreen() {
   const router = useRouter();
+  const { startNewQuote } = useQuoteBuilder();
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -96,7 +99,7 @@ export default function ReportsScreen() {
   }
 
   function handleNewQuote() {
-    router.push('/quotes/select-client');
+    startNewQuote();
   }
 
   function handleOpenQuote(quote: Quote) {
@@ -119,19 +122,19 @@ export default function ReportsScreen() {
   const filteredQuotes = getFilteredQuotes();
 
   // Cálculos dinámicos para la tarjeta oscura
-  const displayCount = filteredQuotes.length > 0 ? filteredQuotes.length : 5;
+  const displayCount = filteredQuotes.length;
   const acceptedQuotes = filteredQuotes.filter((q) => getQuoteStatusText(q) === 'Aceptada');
   const displayPct = filteredQuotes.length > 0
     ? Math.round((acceptedQuotes.length / filteredQuotes.length) * 100)
-    : 40;
+    : 0;
 
   const pipelineVal = filteredQuotes.reduce((sum, q) => sum + getQuoteTotal(q), 0);
-  const displayPipeline = filteredQuotes.length > 0 ? pipelineVal : 3230.5;
+  const displayPipeline = pipelineVal;
 
   const pendingQuotes = filteredQuotes.filter(
     (q) => getQuoteStatusText(q) === 'Pendiente' || getQuoteStatusText(q) === 'Enviada'
   );
-  const displayPending = filteredQuotes.length > 0 ? pendingQuotes.length : 1;
+  const displayPending = pendingQuotes.length;
 
   const getBadgeStyles = (statusText: string) => {
     switch (statusText) {
@@ -294,82 +297,5 @@ export default function ReportsScreen() {
   );
 }
 
-import { styles, modalStyles } from '@/theme/styles/app_tabs_reports';
-
-const STATUSES: QuoteStatus[] = ['Pendiente', 'Enviada', 'Aceptada', 'Rechazada'];
-
-interface StatusPickerModalProps {
-  visible: boolean;
-  currentStatus: QuoteStatus | null;
-  onCancel: () => void;
-  onConfirm: (status: QuoteStatus) => void;
-}
-
-function StatusPickerModal({ visible, currentStatus, onCancel, onConfirm }: StatusPickerModalProps) {
-  const getStatusStyles = (status: QuoteStatus) => {
-    switch (status) {
-      case 'Aceptada':
-        return { bg: '#E6F4EA', text: '#137333' };
-      case 'Rechazada':
-        return { bg: '#FCE8E6', text: '#C5221F' };
-      case 'Pendiente':
-        return { bg: '#FEF7E0', text: '#B06000' };
-      default: // Enviada
-        return { bg: '#F5F5F5', text: '#666666' };
-    }
-  };
-
-  const getAvailableStatuses = (): QuoteStatus[] => {
-    return ['Aceptada', 'Rechazada'];
-  };
-
-  const availableStatuses = getAvailableStatuses();
-
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel}>
-      <Pressable style={modalStyles.overlay} onPress={onCancel}>
-        <Pressable style={modalStyles.sheet} onPress={(e) => e.stopPropagation()}>
-          <View style={modalStyles.header}>
-            <Text style={modalStyles.title}>Cambiar estado de cotización</Text>
-            <Text style={modalStyles.subtitle}>Selecciona el nuevo estado para este documento:</Text>
-          </View>
-
-          <View style={modalStyles.optionsContainer}>
-            {availableStatuses.map((status) => {
-              const styles = getStatusStyles(status);
-              const isSelected = currentStatus === status;
-
-              return (
-                <TouchableOpacity
-                  key={status}
-                  style={[
-                    modalStyles.optionCard,
-                    isSelected && { borderColor: styles.text, borderWidth: 1.5 }
-                  ]}
-                  activeOpacity={0.7}
-                  onPress={() => onConfirm(status)}
-                >
-                  <View style={modalStyles.optionHeader}>
-                    <View style={[modalStyles.badge, { backgroundColor: styles.bg }]}>
-                      <Text style={[modalStyles.badgeText, { color: styles.text }]}>
-                        {status}
-                      </Text>
-                    </View>
-                    {isSelected && (
-                      <Ionicons name="checkmark-circle" size={18} color={styles.text} />
-                    )}
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          <TouchableOpacity style={modalStyles.cancelBtn} onPress={onCancel}>
-            <Text style={modalStyles.cancelBtnText}>Cancelar</Text>
-          </TouchableOpacity>
-        </Pressable>
-      </Pressable>
-    </Modal>
-  );
-}
+import { styles } from '@/theme/styles/app_tabs_reports';
 

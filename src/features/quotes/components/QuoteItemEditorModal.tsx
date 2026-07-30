@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, Text, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/common/Button';
 import type { Product } from '@/features/catalog/types';
 import { colors } from '@/theme/colors';
-import { radius, spacing } from '@/theme/spacing';
-import { typography } from '@/theme/typography';
 import { formatCurrency } from '@/utils/currency';
 
 import { getUnitPrice } from '../services/quoteCalculations';
@@ -43,29 +41,36 @@ export function QuoteItemEditorModal({
   const [tier, setTier] = useState<PriceTier>('A');
   const [discount, setDiscount] = useState('');
 
+  const isStockUnknown = product?.stockQty === null || product?.stockQty === undefined;
+  const hasNoStock = !isStockUnknown && (product?.stockQty ?? 0) <= 0;
+  const limit = isStockUnknown ? 9999 : (product?.stockQty ?? 0);
+
   useEffect(() => {
-    if (visible) {
-      setQuantity(String(initial?.quantity ?? 1));
+    if (visible && product) {
+      const defaultQty = hasNoStock ? '0' : '1';
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setQuantity(String(initial?.quantity ?? defaultQty));
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTier(initial?.priceTier ?? 'A');
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDiscount(initial?.discountPct ? String(initial.discountPct) : '');
     }
-  }, [visible, initial]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, initial, product]);
 
   if (!product) return null;
 
   function adjustQuantity(delta: number) {
+    if (hasNoStock) return;
     const current = Math.max(1, parseInt(quantity, 10) || 1);
-    const maxStock = product?.stockQty ?? 0;
-    const limit = maxStock > 0 ? maxStock : 9999;
-    let next = Math.min(limit, Math.max(1, current + delta));
+    const next = Math.min(limit, Math.max(1, current + delta));
     setQuantity(String(next));
   }
 
   function handleQuantityChange(text: string) {
+    if (hasNoStock) return;
     const cleaned = text.replace(/[^0-9]/g, '');
     const value = parseInt(cleaned, 10);
-    const maxStock = product?.stockQty ?? 0;
-    const limit = maxStock > 0 ? maxStock : 9999;
 
     if (cleaned === '') {
       setQuantity('');
@@ -107,12 +112,21 @@ export function QuoteItemEditorModal({
   }
 
   function handleConfirm() {
-    const maxStock = product?.stockQty ?? 0;
-    const limit = maxStock > 0 ? maxStock : 9999;
+    if (hasNoStock) return;
     const qty = Math.min(limit, Math.max(1, parseInt(quantity, 10) || 1));
     const discountPct = discount.trim() ? Math.min(99, Math.max(0, parseFloat(discount))) : undefined;
     onConfirm({ quantity: qty, priceTier: tier, discountPct });
   }
+
+  const getStockDisplayText = () => {
+    if (isStockUnknown) return 'Desconocido';
+    return String(product.stockQty);
+  };
+
+  const getStockLabelStyle = () => {
+    if (isStockUnknown) return { color: colors.gray };
+    return (product.stockQty ?? 0) > 0 ? styles.stockOk : styles.stockOut;
+  };
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel}>
@@ -139,28 +153,32 @@ export function QuoteItemEditorModal({
 
           <View style={styles.labelRow}>
             <Text style={styles.sectionLabel}>Cantidad</Text>
-            <Text style={[
-              styles.stockLabel,
-              (product.stockQty ?? 0) > 0 ? styles.stockOk : styles.stockOut
-            ]}>
-              Stock disponible: {product.stockQty ?? 0}
+            <Text style={[styles.stockLabel, getStockLabelStyle()]}>
+              Stock disponible: {getStockDisplayText()}
             </Text>
           </View>
           <View style={styles.quantityRow}>
-            <Pressable style={styles.stepButton} onPress={() => adjustQuantity(-1)}>
+            <Pressable style={[styles.stepButton, hasNoStock && { opacity: 0.5 }]} onPress={() => adjustQuantity(-1)} disabled={hasNoStock}>
               <Text style={styles.stepButtonText}>−</Text>
             </Pressable>
             <TextInput
-              style={styles.quantityInput}
+              style={[styles.quantityInput, hasNoStock && { backgroundColor: colors.background, color: colors.gray }]}
               value={quantity}
               onChangeText={handleQuantityChange}
               keyboardType="number-pad"
               maxLength={4}
+              editable={!hasNoStock}
             />
-            <Pressable style={styles.stepButton} onPress={() => adjustQuantity(1)}>
+            <Pressable style={[styles.stepButton, hasNoStock && { opacity: 0.5 }]} onPress={() => adjustQuantity(1)} disabled={hasNoStock}>
               <Text style={styles.stepButtonText}>+</Text>
             </Pressable>
           </View>
+
+          {hasNoStock && (
+            <Text style={{ color: colors.danger, fontSize: 11, marginTop: 4, textAlign: 'center', fontWeight: '500' }}>
+              Este producto no tiene stock disponible para cotizar.
+            </Text>
+          )}
 
           <Text style={styles.sectionLabel}>Descuento (%, opcional)</Text>
           <TextInput
@@ -176,7 +194,11 @@ export function QuoteItemEditorModal({
           <View style={styles.actions}>
             <Button label="Cancelar" variant="ghost" onPress={onCancel} />
             <View style={styles.confirmButton}>
-              <Button label="Agregar a la cotización" onPress={handleConfirm} />
+              <Button
+                label="Agregar a la cotización"
+                onPress={handleConfirm}
+                disabled={hasNoStock || !quantity || parseInt(quantity, 10) <= 0}
+              />
             </View>
           </View>
         </Pressable>

@@ -22,10 +22,10 @@ export function SalesLoadingScreen({ progress: progressProp, onComplete }: Sales
   const [progressState, setProgressState] = useState(0);
 
   // Animación del halo / brillo y el tamaño del logo
-  const pulseAnim = useRef(new Animated.Value(0)).current;
+  const [pulseAnim] = useState(() => new Animated.Value(0));
 
   // Animación del relleno de la barra de progreso
-  const progressAnim = useRef(new Animated.Value(0)).current;
+  const [progressAnim] = useState(() => new Animated.Value(0));
 
   // Bucle infinito para la respiración/pulso de escala y opacidad
   useEffect(() => {

@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAppBootstrap } from '@/features/bootstrap/AppBootstrapProvider';
@@ -90,13 +91,16 @@ export function useCatalog() {
     return () => clearTimeout(handle);
   }, [trimmedSearch, isSearching]);
 
-  /**
-   * Al cambiar cualquier filtro, la paginación vuelve a empezar
-   * desde la primera página.
-   */
-  useEffect(() => {
+  // Render-time state reset to avoid useEffect setState cascading renders
+  const [prevFilters, setPrevFilters] = useState({ search, selectedCategory, selectedBrand });
+  if (
+    prevFilters.search !== search ||
+    prevFilters.selectedCategory !== selectedCategory ||
+    prevFilters.selectedBrand !== selectedBrand
+  ) {
+    setPrevFilters({ search, selectedCategory, selectedBrand });
     setVisibleCount(PAGE_SIZE);
-  }, [search, selectedCategory, selectedBrand]);
+  }
 
   /**
    * Con búsqueda de texto se parte de lo que devuelve /search. Con solo

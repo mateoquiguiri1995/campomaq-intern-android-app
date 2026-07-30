@@ -42,7 +42,7 @@ export function LoadingScreen({
   onComplete,
 }: LoadingScreenProps) {
   const [progressState, setProgressState] = useState(0);
-  const shimmerAnim = useRef(new Animated.Value(0)).current;
+  const [shimmerAnim] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     if (progressProp !== undefined) {

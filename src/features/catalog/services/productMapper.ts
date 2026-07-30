@@ -57,7 +57,7 @@ export function mapApiProduct(api: ApiProduct): Product {
     priceC: api.price_credit,
 
     // Temporal hasta que el backend los envíe.
-    stockQty: api.stock ?? 0,
+    stockQty: api.stock,
 
     marginPct: api.margin,
   };

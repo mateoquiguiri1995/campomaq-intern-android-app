@@ -1,7 +1,8 @@
 import { ApiError, apiGet } from '@/api/client';
 import { supabase } from '@/lib/supabase';
 import * as secureStore from '@/utils/secureStore';
-import { createContext, useContext, useEffect, useState, type PropsWithChildren } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, type PropsWithChildren } from 'react';
+import * as quoteService from '@/features/quotes/services/quoteService';
 import * as authService from './services/authService';
 import type { AuthSession, LoginCredentials } from './types';
 
@@ -131,11 +132,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [hasSession, setHasSession] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   async function loadProfile(accessToken: string) {
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
-      const me = await apiGet<MeResponse>('/auth/me');
+      const me = await apiGet<MeResponse>('/auth/me', { signal: controller.signal });
       const avatarOverride = await secureStore.getItemAsync(AVATAR_OVERRIDE_KEY);
+
+      if (controller.signal.aborted) return;
 
       setSession({
         user: {
@@ -149,18 +157,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
       });
       setProfileError(null);
     } catch (error) {
+      if (controller.signal.aborted) return;
       console.warn('[Auth] /auth/me falló:', error);
-      // Token sin cuenta de vendedor activa (403) o inválido (401): no hay
-      // forma de continuar, se cierra la sesión. Otros errores (red, 500)
-      // ya fueron manejados/reintentados por el cliente HTTP.
       if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
         setProfileError(null);
         await supabase.auth.signOut();
         return;
       }
-      // Una caÃ­da temporal de /auth/me no invalida la sesiÃ³n de Supabase.
-      // Se conserva la sesiÃ³n preliminar para que el usuario pueda reintentar.
       setProfileError(error instanceof Error ? error.message : 'No fue posible cargar tu perfil.');
+    } finally {
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+      }
     }
   }
 
@@ -209,6 +217,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }
 
   async function logout() {
+    if (session?.user?.id) {
+      try {
+        await quoteService.clearUserQuotes(session.user.id);
+      } catch (err) {
+        console.warn('[Auth] Error clearing quotes on logout:', err);
+      }
+    }
     await authService.logout();
   }
 

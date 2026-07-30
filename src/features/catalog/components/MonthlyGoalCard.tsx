@@ -6,14 +6,19 @@ import { colors } from '@/theme/colors';
 import { radius, spacing } from '@/theme/spacing';
 import { formatCurrency } from '@/utils/currency';
 import type { MonthlyGoal } from '../types';
-import { MOCK_MONTHLY_GOAL } from '../services/goalService';
 
 interface MonthlyGoalCardProps {
   goal?: MonthlyGoal | null;
 }
 
-export function MonthlyGoalCard({ goal = MOCK_MONTHLY_GOAL }: MonthlyGoalCardProps) {
-  const currentGoal = goal ?? MOCK_MONTHLY_GOAL;
+const DEFAULT_GOAL: MonthlyGoal = {
+  targetMargin: 0,
+  achievedMargin: 0,
+  percentage: 0,
+};
+
+export function MonthlyGoalCard({ goal }: MonthlyGoalCardProps) {
+  const currentGoal = goal ?? DEFAULT_GOAL;
 
   const {
     achievedMargin,
@@ -46,4 +51,3 @@ export function MonthlyGoalCard({ goal = MOCK_MONTHLY_GOAL }: MonthlyGoalCardPro
     </View>
   );
 }
-

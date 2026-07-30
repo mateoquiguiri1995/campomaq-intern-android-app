@@ -18,6 +18,8 @@ import {
 } from 'react-native';
 
 import { ScreenContainer } from '@/components/common/ScreenContainer';
+import { AvatarMenuModal } from '@/components/common/AvatarMenuModal';
+import { SortModal, type SortCriteria } from '@/components/common/SortModal';
 import { BrandSelect } from '@/features/catalog/components/BrandSelect';
 import { CategoryChip } from '@/features/catalog/components/CategoryChip';
 import { MonthlyGoalCard } from '@/features/catalog/components/MonthlyGoalCard';
@@ -31,18 +33,17 @@ import { radius, spacing } from '@/theme/spacing';
 import { typography } from '@/theme/typography';
 import { useQuoteBuilder } from '@/features/quotes/QuoteBuilderProvider';
 
-type SortType = 'margin' | 'price_asc' | 'price_desc' | 'name';
+type SortType = SortCriteria;
 
 export default function CatalogScreen() {
   const router = useRouter();
   const { goal } = useMonthlyGoal();
   const { session, logout, updateAvatar } = useAuth();
   const user = session?.user;
-  const { resetBuilder } = useQuoteBuilder();
+  const { startNewQuote } = useQuoteBuilder();
 
   function handleNewQuote() {
-    resetBuilder();
-    router.push('/quotes/select-client');
+    startNewQuote();
   }
 
   // Estados para el menu de avatar
@@ -164,10 +165,7 @@ export default function CatalogScreen() {
   };
 
   function handleOpenProduct(product: Product) {
-    router.push({
-      pathname: '/product/[id]',
-      params: { id: product.id, data: JSON.stringify(product) },
-    });
+    router.push(`/product/${product.id}`);
   }
 
   if (loading) {
@@ -336,108 +334,21 @@ export default function CatalogScreen() {
       />
 
       {/* Modal del Menu de Avatar (Cerrar Sesión) */}
-      <Modal
+      <AvatarMenuModal
         visible={menuVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setMenuVisible(false)}
-      >
-        <Pressable style={styles.overlay} onPress={() => setMenuVisible(false)}>
-          <View style={[styles.menu, { top: menuAnchor.top, right: menuAnchor.right }]}>
-            <TouchableOpacity style={styles.menuItem} onPress={handlePickPhoto} activeOpacity={0.7}>
-              <Ionicons name="camera-outline" size={18} color={colors.black} />
-              <Text style={styles.menuItemText}>Cambiar foto</Text>
-            </TouchableOpacity>
-            <View style={styles.menuDivider} />
-            <TouchableOpacity style={styles.menuItem} onPress={handleLogout} activeOpacity={0.7}>
-              <Ionicons name="log-out-outline" size={18} color={colors.danger} />
-              <Text style={[styles.menuItemText, styles.menuItemDanger]}>Cerrar sesión</Text>
-            </TouchableOpacity>
-          </View>
-        </Pressable>
-      </Modal>
+        onClose={() => setMenuVisible(false)}
+        anchor={menuAnchor}
+        onPickPhoto={handlePickPhoto}
+        onLogout={handleLogout}
+      />
 
       {/* Modal de Ordenamiento (Bottom Sheet) */}
-      <Modal
+      <SortModal
         visible={sortModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setSortModalVisible(false)}
-      >
-        <Pressable style={styles.sortBackdrop} onPress={() => setSortModalVisible(false)}>
-          <View style={styles.sortSheet}>
-            <View style={styles.sortSheetHandle} />
-            <Text style={styles.sortSheetTitle}>Ordenar productos</Text>
-            <Text style={styles.sortSheetSubtitle}>Selecciona el criterio de ordenamiento:</Text>
-            
-            <View style={styles.sortOptionsList}>
-              <TouchableOpacity
-                style={[styles.sortOption, sortBy === 'margin' && styles.sortOptionActive]}
-                activeOpacity={0.7}
-                onPress={() => {
-                  setSortBy('margin');
-                  setSortModalVisible(false);
-                }}
-              >
-                <Text style={[styles.sortOptionText, sortBy === 'margin' && styles.sortOptionTextActive]}>
-                  Margen (Mayor a menor)
-                </Text>
-                {sortBy === 'margin' && <Ionicons name="checkmark" size={18} color="#1A1A1A" />}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.sortOption, sortBy === 'price_asc' && styles.sortOptionActive]}
-                activeOpacity={0.7}
-                onPress={() => {
-                  setSortBy('price_asc');
-                  setSortModalVisible(false);
-                }}
-              >
-                <Text style={[styles.sortOptionText, sortBy === 'price_asc' && styles.sortOptionTextActive]}>
-                  Precio (Menor a mayor)
-                </Text>
-                {sortBy === 'price_asc' && <Ionicons name="checkmark" size={18} color="#1A1A1A" />}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.sortOption, sortBy === 'price_desc' && styles.sortOptionActive]}
-                activeOpacity={0.7}
-                onPress={() => {
-                  setSortBy('price_desc');
-                  setSortModalVisible(false);
-                }}
-              >
-                <Text style={[styles.sortOptionText, sortBy === 'price_desc' && styles.sortOptionTextActive]}>
-                  Precio (Mayor a menor)
-                </Text>
-                {sortBy === 'price_desc' && <Ionicons name="checkmark" size={18} color="#1A1A1A" />}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.sortOption, sortBy === 'name' && styles.sortOptionActive]}
-                activeOpacity={0.7}
-                onPress={() => {
-                  setSortBy('name');
-                  setSortModalVisible(false);
-                }}
-              >
-                <Text style={[styles.sortOptionText, sortBy === 'name' && styles.sortOptionTextActive]}>
-                  Nombre (A-Z)
-                </Text>
-                {sortBy === 'name' && <Ionicons name="checkmark" size={18} color="#1A1A1A" />}
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={styles.sortCancelBtn}
-              activeOpacity={0.7}
-              onPress={() => setSortModalVisible(false)}
-            >
-              <Text style={styles.sortCancelBtnText}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
-        </Pressable>
-      </Modal>
+        onClose={() => setSortModalVisible(false)}
+        sortBy={sortBy}
+        onSelect={(criterion) => setSortBy(criterion)}
+      />
       {/* Botón flotante FAB */}
       <TouchableOpacity
         style={styles.fab}

@@ -16,7 +16,7 @@ import { useQuoteBuilder } from '@/features/quotes/QuoteBuilderProvider';
 export default function ClientsScreen() {
   const router = useRouter();
   const [clientFilter, setClientFilter] = useState<ClientFilter>('Todos');
-  const { resetBuilder } = useQuoteBuilder();
+  const { startNewQuote } = useQuoteBuilder();
   const {
     clients,
     loading,
@@ -44,15 +44,11 @@ export default function ClientsScreen() {
   const hasActiveFilters = hasSearchFilter || clientFilter !== 'Todos';
 
   function openClientDetail(client: Client) {
-    router.push({
-      pathname: '/client/[id]',
-      params: { id: client.id, data: JSON.stringify(client) },
-    });
+    router.push(`/client/${client.id}`);
   }
 
   function handleNewQuote() {
-    resetBuilder();
-    router.push('/quotes/select-client');
+    startNewQuote();
   }
 
   if (loading) {

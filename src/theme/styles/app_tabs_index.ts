@@ -361,5 +361,11 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.border,
     marginHorizontal: spacing.sm,
   },
+  emptyText: {
+    ...typography.body,
+    color: colors.gray,
+    textAlign: 'center',
+    paddingVertical: spacing.md,
+  },
 });
 
