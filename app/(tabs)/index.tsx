@@ -161,12 +161,13 @@ export default function HomeScreen() {
 
   // 2. Cálculo dinámico de métricas (Visitas, Cotizaciones, Ventas cerradas y Ticket promedio)
   const totalQuotesCount = quotes.length;
-  const closedSales = quotes.filter(q => q.status === 'Aceptada' || q.status === 'Enviada');
+  // Enviada significa compartida; la venta solo se registra al ser aceptada.
+  const closedSales = quotes.filter(q => q.status === 'Aceptada');
   const closedSalesCount = closedSales.length;
 
   const avgTicket = closedSalesCount > 0
     ? Math.round(closedSales.reduce((sum, q) => sum + getQuoteTotal(q), 0) / closedSalesCount)
-    : 844; // fallback mockup
+    : 0;
 
   // 3. Cálculo dinámico de ventas por categoría
   const categoryTotals: Record<string, number> = {
@@ -199,10 +200,10 @@ export default function HomeScreen() {
   });
 
   const categoryPercentages = {
-    'Cultivadores': totalSalesSum > 0 ? Math.round((categoryTotals['Cultivadores'] / totalSalesSum) * 100) : 38,
-    'Motosierras': totalSalesSum > 0 ? Math.round((categoryTotals['Motosierras'] / totalSalesSum) * 100) : 27,
-    'Bombas': totalSalesSum > 0 ? Math.round((categoryTotals['Bombas'] / totalSalesSum) * 100) : 18,
-    'Generadores': totalSalesSum > 0 ? Math.round((categoryTotals['Generadores'] / totalSalesSum) * 100) : 17,
+    'Cultivadores': totalSalesSum > 0 ? Math.round((categoryTotals['Cultivadores'] / totalSalesSum) * 100) : 0,
+    'Motosierras': totalSalesSum > 0 ? Math.round((categoryTotals['Motosierras'] / totalSalesSum) * 100) : 0,
+    'Bombas': totalSalesSum > 0 ? Math.round((categoryTotals['Bombas'] / totalSalesSum) * 100) : 0,
+    'Generadores': totalSalesSum > 0 ? Math.round((categoryTotals['Generadores'] / totalSalesSum) * 100) : 0,
   };
 
   // 4. Ranking de mejores clientes (Dinámico desde la base de datos de clientes)
@@ -225,17 +226,11 @@ export default function HomeScreen() {
     });
   });
   const sortedProducts = Object.values(productSalesMap).sort((a, b) => b.qty - a.qty);
-  const displayTopProducts = sortedProducts.length > 0
-    ? sortedProducts.slice(0, 3).map(p => ({
-        name: p.product.name,
-        total: formatCurrency(Math.round(p.total)),
-        subtitle: `${p.qty} ${p.qty === 1 ? 'ud' : 'uds'}`,
-      }))
-    : [
-        { name: 'Motocultor Honda FG-650', total: '$11,840', subtitle: '8 uds' },
-        { name: 'Motosierra Husqvarna 455', total: '$3,445', subtitle: '5 uds' },
-        { name: 'Generador 5kW Pramac', total: '$3,360', subtitle: '3 uds' },
-      ];
+  const displayTopProducts = sortedProducts.slice(0, 3).map(p => ({
+    name: p.product.name,
+    total: formatCurrency(Math.round(p.total)),
+    subtitle: `${p.qty} ${p.qty === 1 ? 'ud' : 'uds'}`,
+  }));
 
   // 6. Actividades Recientes (Cálculo dinámico basado en cotizaciones y clientes nuevos)
   const recentActivitiesList: Array<{
@@ -286,26 +281,8 @@ export default function HomeScreen() {
     });
   });
 
-  // Agregar actividad simulada de clientes recién creados
-  topClients.forEach(c => {
-    if (c.name.includes('Andes')) {
-      recentActivitiesList.push({
-        id: `c-act-${c.id}`,
-        icon: 'people',
-        title: `Nuevo cliente - ${c.name}`,
-        time: 'Ayer',
-        timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-        rightContent: null,
-      });
-    }
-  });
-
   const sortedActivities = recentActivitiesList.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
-  const displayActivities = sortedActivities.length > 0 ? sortedActivities.slice(0, 3) : [
-    { id: 'act-1', icon: 'cart' as const, title: 'Venta cerrada - Hacienda La Florida', time: 'Hace 2 h', rightContent: <Text style={styles.activityGreen}>+$1,689</Text> },
-    { id: 'act-2', icon: 'document-text' as const, title: 'Cotización enviada - Agroindustrial Cotopaxi', time: 'Hace 4 h', rightContent: <Text style={styles.activityDark}>$980</Text> },
-    { id: 'act-3', icon: 'people' as const, title: 'Nuevo cliente - Vivero Los Andes', time: 'Ayer', rightContent: null },
-  ];
+  const displayActivities = sortedActivities.slice(0, 3);
 
   return (
     <ScreenContainer scroll={false}>

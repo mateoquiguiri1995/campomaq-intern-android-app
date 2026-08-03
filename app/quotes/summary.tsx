@@ -10,6 +10,7 @@ import { useQuoteBuilder } from '@/features/quotes/QuoteBuilderProvider';
 import { getQuoteTotals, getLineTotal, getUnitPrice } from '@/features/quotes/services/quoteCalculations';
 import { getClientDisplayName, getClientDisplaySubtitle } from '@/features/quotes/services/quoteClient';
 import { shareQuotePdf } from '@/features/quotes/services/quotePdf';
+import { deleteQuote } from '@/features/quotes/services/quoteService';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { colors } from '@/theme/colors';
 import { radius, spacing } from '@/theme/spacing';
@@ -21,7 +22,7 @@ export default function QuoteSummaryScreen() {
   const router = useRouter();
   const { session } = useAuth();
   const { draftId } = useLocalSearchParams<{ draftId?: string }>();
-  const { client, items, loadDraft, updateItem, removeItem, saveDraft, markGenerated } = useQuoteBuilder();
+  const { client, items, status, loadDraft, updateItem, removeItem, saveDraft, markGenerated, duplicateQuote, resetBuilder } = useQuoteBuilder();
 
   const [hydrating, setHydrating] = useState(!!draftId);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -35,6 +36,7 @@ export default function QuoteSummaryScreen() {
 
   const totals = getQuoteTotals(items);
   const editingItem = editingProduct ? items.find((item) => item.product.id === editingProduct.id) : undefined;
+  const isEditable = status === 'Pendiente';
 
   async function handleSaveDraft() {
     try {
@@ -51,14 +53,40 @@ export default function QuoteSummaryScreen() {
   async function handleGenerateAndShare() {
     try {
       setGenerating(true);
-      const quote = await markGenerated();
+      // A quotation changes to Enviada only after the share action succeeds.
+      const quote = await saveDraft();
       await shareQuotePdf(quote, session?.user ?? undefined);
+      await markGenerated();
       router.replace('/reports');
     } catch (error) {
       Alert.alert('No se pudo generar el PDF', error instanceof Error ? error.message : 'Intenta de nuevo.');
     } finally {
       setGenerating(false);
     }
+  }
+
+  function handleDuplicate() {
+    duplicateQuote();
+    router.replace('/quotes/summary');
+  }
+
+  function handleDelete() {
+    Alert.alert('Eliminar borrador', 'Esta acción no se puede deshacer.', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Eliminar',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteQuote(draftId ?? '');
+            resetBuilder();
+            router.replace('/reports');
+          } catch (error) {
+            Alert.alert('No se pudo eliminar', error instanceof Error ? error.message : 'Intenta de nuevo.');
+          }
+        },
+      },
+    ]);
   }
 
   function handleDecreaseQty(item: QuoteItem) {
@@ -74,6 +102,17 @@ export default function QuoteSummaryScreen() {
         ]
       );
     }
+  }
+
+  function handleRemoveItem(item: QuoteItem) {
+    Alert.alert('Eliminar producto', `¿Quieres quitar ${item.product.name} de la cotización?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Eliminar',
+        style: 'destructive',
+        onPress: () => removeItem(item.product.id),
+      },
+    ]);
   }
 
   const getClientInitials = () => {
@@ -138,6 +177,7 @@ export default function QuoteSummaryScreen() {
           style={styles.clientCard}
           activeOpacity={0.8}
           onPress={() => router.push('/quotes/select-client')}
+          disabled={!isEditable}
         >
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{getClientInitials()}</Text>
@@ -152,20 +192,20 @@ export default function QuoteSummaryScreen() {
               </Text>
             ) : null}
           </View>
-          <Ionicons name="chevron-forward" size={18} color="#8E8E93" />
+          {isEditable && <Ionicons name="chevron-forward" size={18} color="#8E8E93" />}
         </TouchableOpacity>
 
         {/* Sección de Productos */}
         <View style={styles.productsHeaderRow}>
           <Text style={styles.sectionTitle}>PRODUCTOS ({items.length})</Text>
-          <TouchableOpacity
+          {isEditable && <TouchableOpacity
             style={styles.addProductsBtn}
             activeOpacity={0.7}
             onPress={() => router.push('/quotes/select-products')}
           >
             <Ionicons name="add" size={16} color={colors.black} style={styles.addBtnIcon} />
             <Text style={styles.addProductsText}>Agregar</Text>
-          </TouchableOpacity>
+          </TouchableOpacity>}
         </View>
 
         {items.length === 0 ? (
@@ -176,23 +216,36 @@ export default function QuoteSummaryScreen() {
               <TouchableOpacity
                 key={item.product.id}
                 style={styles.productCard}
-                activeOpacity={0.85}
-                onPress={() => setEditingProduct(item.product)}
+                activeOpacity={isEditable ? 0.85 : 1}
+                onPress={isEditable ? () => setEditingProduct(item.product) : undefined}
               >
                 <View style={styles.productCardTop}>
                   <Text style={styles.productName} numberOfLines={1}>
                     {item.product.name}
                   </Text>
-                  <Text style={styles.productLineTotal}>
-                    {formatCurrency(getLineTotal(item))}
-                  </Text>
+                  <View style={styles.productLineActions}>
+                    <Text style={styles.productLineTotal}>
+                      {formatCurrency(getLineTotal(item))}
+                    </Text>
+                    {isEditable && (
+                      <TouchableOpacity
+                        hitSlop={8}
+                        onPress={(event) => {
+                          event.stopPropagation();
+                          handleRemoveItem(item);
+                        }}
+                      >
+                        <Ionicons name="trash-outline" size={18} color={colors.danger} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
 
                 <View style={styles.productCardBottom}>
                   <Text style={styles.productUnitSubtitle}>
                     {formatCurrency(getUnitPrice(item.product, item.priceTier))} c/u
                   </Text>
-                  <View style={styles.counterRow}>
+                  {isEditable && <View style={styles.counterRow}>
                     <TouchableOpacity
                       style={styles.counterBtnMinus}
                       activeOpacity={0.7}
@@ -208,7 +261,7 @@ export default function QuoteSummaryScreen() {
                     >
                       <Ionicons name="add" size={14} color={colors.primary} />
                     </TouchableOpacity>
-                  </View>
+                  </View>}
                 </View>
               </TouchableOpacity>
             ))}
@@ -235,7 +288,7 @@ export default function QuoteSummaryScreen() {
         )}
       </ScrollView>
 
-      {/* Botonera Inferior Fija */}
+      {isEditable ? (
       <View style={styles.bottomButtons}>
         <TouchableOpacity
           style={[styles.btnDraft, (items.length === 0 || savingDraft || generating) && styles.btnDisabled]}
@@ -253,6 +306,24 @@ export default function QuoteSummaryScreen() {
           <Text style={styles.btnSendText}>{generating ? 'Enviando…' : 'Enviar cotización'}</Text>
         </TouchableOpacity>
       </View>
+      ) : (
+        <View style={styles.bottomButtons}>
+          <TouchableOpacity style={styles.btnSend} onPress={handleDuplicate}>
+            <Text style={styles.btnSendText}>Duplicar cotización</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {isEditable && draftId && (
+        <View style={styles.draftActions}>
+          <TouchableOpacity onPress={handleDuplicate}>
+            <Text style={styles.duplicateDraftText}>Duplicar borrador</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleDelete}>
+            <Text style={styles.deleteDraftText}>Eliminar borrador</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <QuoteItemEditorModal
         visible={!!editingProduct}

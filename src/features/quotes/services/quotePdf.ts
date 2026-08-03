@@ -83,6 +83,12 @@ function buildHtml(quote: Quote, seller?: User): string {
       const prodDesc = item.product.description 
         ? escapeHtml(cleanAndTruncateDescription(item.product.description, 140))
         : '';
+      const stockWarning =
+        item.product.stockQty <= 0
+          ? 'SIN STOCK — confirmar disponibilidad'
+          : item.quantity > item.product.stockQty
+            ? `STOCK INSUFICIENTE (${item.product.stockQty} disponible)`
+            : '';
 
       return `
         <tr>
@@ -93,6 +99,7 @@ function buildHtml(quote: Quote, seller?: User): string {
               <span><strong>Cód:</strong> ${prodCode}</span> &nbsp;&middot;&nbsp; 
               <span><strong>Marca:</strong> ${prodBrand}</span>
             </div>
+            ${stockWarning ? `<div class="stock-warning">${stockWarning}</div>` : ''}
             ${prodDesc ? `<div class="prod-desc">${prodDesc}</div>` : ''}
           </td>
           <td class="col-center num-value">${item.quantity}</td>
@@ -242,6 +249,7 @@ function buildHtml(quote: Quote, seller?: User): string {
           .prod-name { font-weight: 700; color: #1a1a1a; font-size: 10.5px; margin-bottom: 2px; }
           .prod-meta { font-size: 8.5px; color: #8A8A8A; margin-bottom: 4px; text-transform: uppercase; }
           .prod-desc { font-size: 9px; color: #555555; line-height: 1.35; }
+          .stock-warning { display: inline-block; margin-top: 3px; padding: 2px 5px; border-radius: 3px; background: #FCE8E6; color: #B3261E; font-size: 8px; font-weight: 800; }
           
           .num-value { font-weight: 600; color: #1a1a1a; }
           .col-right { text-align: right; }

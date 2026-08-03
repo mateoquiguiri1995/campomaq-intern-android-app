@@ -31,8 +31,10 @@ interface QuoteBuilderContextValue {
   addItem: (product: Product, options: AddItemOptions) => void;
   updateItem: (productId: string, patch: Partial<AddItemOptions>) => void;
   removeItem: (productId: string) => void;
-  /** Carga una cotización guardada (para reabrir un borrador). */
+  /** Carga una cotización guardada para verla o, si está pendiente, editarla. */
   loadDraft: (draftId: string) => Promise<void>;
+  /** Crea una nueva cotización pendiente a partir de la actual. */
+  duplicateQuote: () => void;
   /** Persiste el estado actual como borrador y lo devuelve. */
   saveDraft: () => Promise<Quote>;
   /** Persiste el estado actual como "generada" (ya se creó/compartió el PDF). */
@@ -57,24 +59,29 @@ export function QuoteBuilderProvider({ children }: PropsWithChildren) {
     setCreatedAt(new Date().toISOString());
   }, []);
 
-  const setClient = useCallback((next: QuoteClient) => setClientState(next), []);
+  const setClient = useCallback((next: QuoteClient) => {
+    if (status === 'Pendiente') setClientState(next);
+  }, [status]);
 
   const addItem = useCallback((product: Product, options: AddItemOptions) => {
+    if (status !== 'Pendiente') return;
     setItems((current) => [
       ...current.filter((item) => item.product.id !== product.id),
       { product, quantity: options.quantity, priceTier: options.priceTier, discountPct: options.discountPct },
     ]);
-  }, []);
+  }, [status]);
 
   const updateItem = useCallback((productId: string, patch: Partial<AddItemOptions>) => {
+    if (status !== 'Pendiente') return;
     setItems((current) =>
       current.map((item) => (item.product.id === productId ? { ...item, ...patch } : item))
     );
-  }, []);
+  }, [status]);
 
   const removeItem = useCallback((productId: string) => {
+    if (status !== 'Pendiente') return;
     setItems((current) => current.filter((item) => item.product.id !== productId));
-  }, []);
+  }, [status]);
 
   const loadDraft = useCallback(
     async (draftId: string) => {
@@ -97,6 +104,9 @@ export function QuoteBuilderProvider({ children }: PropsWithChildren) {
       if (!client) {
         throw new Error('Selecciona o registra un cliente antes de guardar.');
       }
+      if (status !== 'Pendiente') {
+        throw new Error('La cotización enviada no puede modificarse. Duplícala para crear una nueva.');
+      }
 
       const quote: Quote = {
         id,
@@ -111,11 +121,17 @@ export function QuoteBuilderProvider({ children }: PropsWithChildren) {
       setStatus(nextStatus);
       return quote;
     },
-    [id, client, items, createdAt]
+    [id, client, items, createdAt, status]
   );
 
   const saveDraft = useCallback(() => persist('Pendiente'), [persist]);
   const markGenerated = useCallback(() => persist('Enviada'), [persist]);
+
+  const duplicateQuote = useCallback(() => {
+    setId(generateId());
+    setStatus('Pendiente');
+    setCreatedAt(new Date().toISOString());
+  }, []);
 
   const value = useMemo<QuoteBuilderContextValue>(
     () => ({
@@ -128,11 +144,12 @@ export function QuoteBuilderProvider({ children }: PropsWithChildren) {
       updateItem,
       removeItem,
       loadDraft,
+      duplicateQuote,
       saveDraft,
       markGenerated,
       resetBuilder,
     }),
-    [id, client, items, status, setClient, addItem, updateItem, removeItem, loadDraft, saveDraft, markGenerated, resetBuilder]
+    [id, client, items, status, setClient, addItem, updateItem, removeItem, loadDraft, duplicateQuote, saveDraft, markGenerated, resetBuilder]
   );
 
   return <QuoteBuilderContext.Provider value={value}>{children}</QuoteBuilderContext.Provider>;

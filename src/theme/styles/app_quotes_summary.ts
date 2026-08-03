@@ -128,6 +128,11 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.black,
   },
+  productLineActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   productCardBottom: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -241,5 +246,20 @@ export const styles = StyleSheet.create({
   btnDisabled: {
     opacity: 0.5,
   },
+  draftActions: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.lg,
+    paddingBottom: spacing.md,
+  },
+  duplicateDraftText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.grayDark,
+  },
+  deleteDraftText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.danger,
+  },
 });
-

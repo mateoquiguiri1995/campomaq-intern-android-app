@@ -1,231 +1,47 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import type { Quote, QuoteStatus } from '../types';
 
 const STORAGE_KEY = 'campomaq-quotes';
+const LEGACY_MOCK_QUOTE_IDS = new Set([
+  'q-florida-0231',
+  'q-cotopaxi-0229',
+  'q-andes-0225',
+  'q-miraflores-0219',
+  'q-rafael-0214',
+]);
 
-const MOCK_QUOTES: Quote[] = [
-  {
-    id: 'q-florida-0231',
-    client: {
-      kind: 'registered',
-      client: {
-        id: '1791234567001',
-        name: 'Hacienda La Florida',
-        ruc: '1791234567001',
-        email: 'contacto@laflorida.com',
-        phone: '0991234567',
-        location: 'Cayambe, Pichincha',
-        score: 'A+',
-        totalPurchases: 4046.5,
-        lastPurchaseDate: '2026-04-12',
-        hasPendingCredit: true,
-      }
-    },
-    items: [
-      {
-        product: {
-          id: 'p-honda-fg650',
-          code: 'HND-FG650',
-          name: 'Motocultor Honda FG-650',
-          category: 'Cultivadores',
-          brand: 'Honda',
-          mainPrice: 1722.1739,
-          priceA: 1722.1739,
-          priceB: 1722.1739,
-          priceC: 1722.1739,
-          stockQty: 8,
-        },
-        quantity: 1,
-        priceTier: 'A'
-      }
-    ],
-    status: 'Aceptada',
-    createdAt: '2026-07-18T14:30:00.000Z',
-    updatedAt: '2026-07-18T14:30:00.000Z'
-  },
-  {
-    id: 'q-cotopaxi-0229',
-    client: {
-      kind: 'registered',
-      client: {
-        id: '1891234567002',
-        name: 'Agroindustrial Cotopaxi',
-        ruc: '1891234567002',
-        email: 'contacto@cotopaxi.com',
-        phone: '0991234568',
-        location: 'Latacunga, Cotopaxi',
-        score: 'B',
-        totalPurchases: 980,
-        lastPurchaseDate: '2026-02-18',
-        hasPendingCredit: false,
-      }
-    },
-    items: [
-      {
-        product: {
-          id: 'p-motosierra-55',
-          code: 'HUSQ-455',
-          name: 'Motosierra Husqvarna 455',
-          category: 'Motosierras',
-          brand: 'Husqvarna',
-          mainPrice: 852.1739,
-          priceA: 852.1739,
-          priceB: 852.1739,
-          priceC: 852.1739,
-          stockQty: 5,
-        },
-        quantity: 1,
-        priceTier: 'A'
-      }
-    ],
-    status: 'Enviada',
-    createdAt: '2026-07-15T10:15:00.000Z',
-    updatedAt: '2026-07-15T10:15:00.000Z'
-  },
-  {
-    id: 'q-andes-0225',
-    client: {
-      kind: 'registered',
-      client: {
-        id: '1991234567003',
-        name: 'Vivero Los Andes',
-        ruc: '1991234567003',
-        email: 'contacto@losandes.com',
-        phone: '0991234569',
-        location: 'Cayambe, Pichincha',
-        score: 'A',
-        totalPurchases: 1250,
-        lastPurchaseDate: '2026-01-05',
-        hasPendingCredit: false,
-      }
-    },
-    items: [
-      {
-        product: {
-          id: 'p-bomba-andes',
-          code: 'BMB-ANDES',
-          name: 'Bomba de agua Andes',
-          category: 'Bombas',
-          brand: 'Andes',
-          mainPrice: 1086.9565,
-          priceA: 1086.9565,
-          priceB: 1086.9565,
-          priceC: 1086.9565,
-          stockQty: 3,
-        },
-        quantity: 1,
-        priceTier: 'A'
-      }
-    ],
-    status: 'Pendiente',
-    createdAt: '2026-07-10T16:45:00.000Z',
-    updatedAt: '2026-07-10T16:45:00.000Z'
-  },
-  {
-    id: 'q-miraflores-0219',
-    client: {
-      kind: 'registered',
-      client: {
-        id: '1791234567005',
-        name: 'Rancho Miraflores',
-        ruc: '1791234567005',
-        email: 'contacto@miraflores.com',
-        phone: '0991234571',
-        location: 'Machachi, Pichincha',
-        score: 'B',
-        totalPurchases: 540,
-        lastPurchaseDate: '2025-11-30',
-        hasPendingCredit: false,
-      }
-    },
-    items: [
-      {
-        product: {
-          id: 'p-generador-miraflores',
-          code: 'GEN-MIRA',
-          name: 'Generador Miraflores',
-          category: 'Generadores',
-          brand: 'Miraflores',
-          mainPrice: 469.5652,
-          priceA: 469.5652,
-          priceB: 469.5652,
-          priceC: 469.5652,
-          stockQty: 2,
-        },
-        quantity: 1,
-        priceTier: 'A'
-      }
-    ],
-    status: 'Rechazada',
-    createdAt: '2026-07-02T09:00:00.000Z',
-    updatedAt: '2026-07-02T09:00:00.000Z'
-  },
-  {
-    id: 'q-rafael-0214',
-    client: {
-      kind: 'registered',
-      client: {
-        id: '1791234567004',
-        name: 'Floricola San Rafael',
-        ruc: '1791234567004',
-        email: 'contacto@sanrafael.com',
-        phone: '0991234570',
-        location: 'Tabacundo, Pichincha',
-        score: 'A+',
-        totalPurchases: 6320,
-        lastPurchaseDate: '2025-12-22',
-        hasPendingCredit: false,
-      }
-    },
-    items: [
-      {
-        product: {
-          id: 'p-cultivador-rafael',
-          code: 'CLT-RAFA',
-          name: 'Cultivador San Rafael',
-          category: 'Cultivadores',
-          brand: 'San Rafael',
-          mainPrice: 1913.0435,
-          priceA: 1913.0435,
-          priceB: 1913.0435,
-          priceC: 1913.0435,
-          stockQty: 4,
-        },
-        quantity: 1,
-        priceTier: 'A'
-      }
-    ],
-    status: 'Aceptada',
-    createdAt: '2026-06-27T11:20:00.000Z',
-    updatedAt: '2026-06-27T11:20:00.000Z'
-  }
-];
-
+/**
+ * Las cotizaciones son documentos reales creados por el vendedor. No se
+ * precargan datos de demostración: una instalación nueva empieza vacía.
+ */
 async function readAll(): Promise<Quote[]> {
   const raw = await AsyncStorage.getItem(STORAGE_KEY);
-  if (!raw) {
-    await writeAll(MOCK_QUOTES);
-    return MOCK_QUOTES;
-  }
+  if (!raw) return [];
 
   try {
     const parsed = JSON.parse(raw) as Quote[];
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      return parsed.map((q) => {
-        let mappedStatus = q.status;
-        if ((q.status as any) === 'draft') {
-          mappedStatus = 'Pendiente';
-        } else if ((q.status as any) === 'generated') {
-          mappedStatus = 'Enviada';
-        }
-        return { ...q, status: mappedStatus };
-      });
-    }
-    await writeAll(MOCK_QUOTES);
-    return MOCK_QUOTES;
+    if (!Array.isArray(parsed)) return [];
+
+    // Compatibilidad con los nombres usados por versiones anteriores.
+    const quotes = parsed
+      .filter((quote) => !LEGACY_MOCK_QUOTE_IDS.has(quote.id))
+      .map((quote) => ({
+        ...quote,
+        status:
+          quote.status === ('draft' as QuoteStatus)
+            ? 'Pendiente'
+            : quote.status === ('generated' as QuoteStatus)
+              ? 'Enviada'
+              : quote.status,
+      }));
+
+    if (quotes.length !== parsed.length) await writeAll(quotes);
+    return quotes;
   } catch {
+    // No se reemplaza un almacenamiento ilegible por información ficticia.
     await AsyncStorage.removeItem(STORAGE_KEY);
-    return MOCK_QUOTES;
+    return [];
   }
 }
 
@@ -244,10 +60,14 @@ export async function getQuote(id: string): Promise<Quote | null> {
   return quotes.find((quote) => quote.id === id) ?? null;
 }
 
-/** Crea o actualiza (por id) una cotización guardada. */
+/** Crea o actualiza una cotización pendiente. Las enviadas son inmutables. */
 export async function saveQuote(quote: Quote): Promise<void> {
   const quotes = await readAll();
   const index = quotes.findIndex((existing) => existing.id === quote.id);
+
+  if (index >= 0 && quotes[index].status !== 'Pendiente') {
+    throw new Error('Una cotización enviada no puede modificarse. Duplícala para crear una nueva.');
+  }
 
   if (index >= 0) {
     quotes[index] = quote;
@@ -258,19 +78,39 @@ export async function saveQuote(quote: Quote): Promise<void> {
   await writeAll(quotes);
 }
 
+/** Solo los borradores pueden eliminarse. */
 export async function deleteQuote(id: string): Promise<void> {
   const quotes = await readAll();
+  const quote = quotes.find((item) => item.id === id);
+  if (quote && quote.status !== 'Pendiente') {
+    throw new Error('Una cotización enviada no puede eliminarse.');
+  }
   await writeAll(quotes.filter((quote) => quote.id !== id));
 }
 
-/** Actualiza directamente el estado de una cotización y la guarda. */
+/**
+ * Transiciones permitidas:
+ * Pendiente → Enviada al compartir; Enviada → Aceptada/Rechazada desde
+ * Reportes. Un borrador no puede marcarse como aceptado o rechazado.
+ */
 export async function updateQuoteStatus(id: string, nextStatus: QuoteStatus): Promise<Quote> {
-  const quotes = await readAll();
-  const index = quotes.findIndex((q) => q.id === id);
-  if (index === -1) {
-    throw new Error('No se encontró la cotización.');
+  if (!['Enviada', 'Aceptada', 'Rechazada'].includes(nextStatus)) {
+    throw new Error('Estado de cotización no válido.');
   }
-  const updated = {
+
+  const quotes = await readAll();
+  const index = quotes.findIndex((quote) => quote.id === id);
+  if (index === -1) throw new Error('No se encontró la cotización.');
+  const currentStatus = quotes[index].status;
+  const validTransition =
+    (currentStatus === 'Pendiente' && nextStatus === 'Enviada') ||
+    (currentStatus === 'Enviada' && (nextStatus === 'Aceptada' || nextStatus === 'Rechazada'));
+
+  if (!validTransition) {
+    throw new Error('La cotización solo puede cambiar de Pendiente a Enviada y luego a Aceptada o Rechazada.');
+  }
+
+  const updated: Quote = {
     ...quotes[index],
     status: nextStatus,
     updatedAt: new Date().toISOString(),

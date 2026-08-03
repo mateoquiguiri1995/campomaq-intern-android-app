@@ -1,15 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View, Modal, Pressable } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { ScreenContainer } from '@/components/common/ScreenContainer';
-import { deleteQuote, listQuotes, updateQuoteStatus } from '@/features/quotes/services/quoteService';
+import { listQuotes, updateQuoteStatus } from '@/features/quotes/services/quoteService';
 import type { Quote, QuoteItem, PriceTier, QuoteStatus } from '@/features/quotes/types';
 import type { Product } from '@/features/catalog/types';
 import { spacing } from '@/theme/spacing';
 import { colors } from '@/theme/colors';
 import { formatCurrency } from '@/utils/currency';
+import { styles } from '@/theme/styles/app_tabs_reports';
 
 type PeriodType = 'Semana' | 'Mes' | 'Trimestre';
 
@@ -50,8 +51,6 @@ export default function ReportsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>('Mes');
-  const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
-  const [statusPickerVisible, setStatusPickerVisible] = useState(false);
 
   const loadQuotes = useCallback(() => {
     let isMounted = true;
@@ -83,24 +82,38 @@ export default function ReportsScreen() {
     }, [loadQuotes])
   );
 
-  async function handleUpdateStatus(status: QuoteStatus) {
-    if (!selectedQuote) return;
-    try {
-      await updateQuoteStatus(selectedQuote.id, status);
-      loadQuotes();
-      setStatusPickerVisible(false);
-      setSelectedQuote(null);
-    } catch (err) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'No se pudo actualizar el estado.');
-    }
-  }
-
   function handleNewQuote() {
     router.push('/quotes/select-client');
   }
 
   function handleOpenQuote(quote: Quote) {
     router.push({ pathname: '/quotes/summary', params: { draftId: quote.id } });
+  }
+
+  function handleStatusChange(quote: Quote) {
+    if (quote.status !== 'Enviada') return;
+
+    Alert.alert('Actualizar cotización', '¿Cuál fue el resultado de esta cotización?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Rechazada',
+        style: 'destructive',
+        onPress: () => updateStatus(quote.id, 'Rechazada'),
+      },
+      {
+        text: 'Aceptada',
+        onPress: () => updateStatus(quote.id, 'Aceptada'),
+      },
+    ]);
+  }
+
+  async function updateStatus(id: string, status: QuoteStatus) {
+    try {
+      await updateQuoteStatus(id, status);
+      loadQuotes();
+    } catch (error) {
+      Alert.alert('No se pudo actualizar', error instanceof Error ? error.message : 'Intenta de nuevo.');
+    }
   }
 
   // Filtrado dinámico por período
@@ -119,19 +132,21 @@ export default function ReportsScreen() {
   const filteredQuotes = getFilteredQuotes();
 
   // Cálculos dinámicos para la tarjeta oscura
-  const displayCount = filteredQuotes.length > 0 ? filteredQuotes.length : 5;
+  const displayCount = filteredQuotes.length;
   const acceptedQuotes = filteredQuotes.filter((q) => getQuoteStatusText(q) === 'Aceptada');
   const displayPct = filteredQuotes.length > 0
     ? Math.round((acceptedQuotes.length / filteredQuotes.length) * 100)
-    : 40;
+    : 0;
 
-  const pipelineVal = filteredQuotes.reduce((sum, q) => sum + getQuoteTotal(q), 0);
-  const displayPipeline = filteredQuotes.length > 0 ? pipelineVal : 3230.5;
+  const pipelineVal = filteredQuotes
+    .filter((quote) => quote.status === 'Pendiente' || quote.status === 'Enviada')
+    .reduce((sum, quote) => sum + getQuoteTotal(quote), 0);
+  const displayPipeline = pipelineVal;
 
   const pendingQuotes = filteredQuotes.filter(
     (q) => getQuoteStatusText(q) === 'Pendiente' || getQuoteStatusText(q) === 'Enviada'
   );
-  const displayPending = filteredQuotes.length > 0 ? pendingQuotes.length : 1;
+  const displayPending = pendingQuotes.length;
 
   const getBadgeStyles = (statusText: string) => {
     switch (statusText) {
@@ -243,12 +258,9 @@ export default function ReportsScreen() {
                       COT-{cotNum} · {formatQuoteDate(quote.createdAt)}
                     </Text>
                     <TouchableOpacity
-                      activeOpacity={0.7}
-                      disabled={quote.status === 'Pendiente'}
-                      onPress={() => {
-                        setSelectedQuote(quote);
-                        setStatusPickerVisible(true);
-                      }}
+                      activeOpacity={quote.status === 'Enviada' ? 0.7 : 1}
+                      disabled={quote.status !== 'Enviada'}
+                      onPress={() => handleStatusChange(quote)}
                       style={[styles.statusBadge, { backgroundColor: badgeStyle.bg }]}
                     >
                       <Text style={[styles.statusBadgeText, { color: badgeStyle.text }]}>
@@ -281,95 +293,7 @@ export default function ReportsScreen() {
         <Ionicons name="add" size={28} color={colors.black} />
       </TouchableOpacity>
 
-      <StatusPickerModal
-        visible={statusPickerVisible}
-        currentStatus={selectedQuote ? selectedQuote.status : null}
-        onCancel={() => {
-          setStatusPickerVisible(false);
-          setSelectedQuote(null);
-        }}
-        onConfirm={handleUpdateStatus}
-      />
     </ScreenContainer>
-  );
-}
-
-import { styles, modalStyles } from '@/theme/styles/app_tabs_reports';
-
-const STATUSES: QuoteStatus[] = ['Pendiente', 'Enviada', 'Aceptada', 'Rechazada'];
-
-interface StatusPickerModalProps {
-  visible: boolean;
-  currentStatus: QuoteStatus | null;
-  onCancel: () => void;
-  onConfirm: (status: QuoteStatus) => void;
-}
-
-function StatusPickerModal({ visible, currentStatus, onCancel, onConfirm }: StatusPickerModalProps) {
-  const getStatusStyles = (status: QuoteStatus) => {
-    switch (status) {
-      case 'Aceptada':
-        return { bg: '#E6F4EA', text: '#137333' };
-      case 'Rechazada':
-        return { bg: '#FCE8E6', text: '#C5221F' };
-      case 'Pendiente':
-        return { bg: '#FEF7E0', text: '#B06000' };
-      default: // Enviada
-        return { bg: '#F5F5F5', text: '#666666' };
-    }
-  };
-
-  const getAvailableStatuses = (): QuoteStatus[] => {
-    return ['Aceptada', 'Rechazada'];
-  };
-
-  const availableStatuses = getAvailableStatuses();
-
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel}>
-      <Pressable style={modalStyles.overlay} onPress={onCancel}>
-        <Pressable style={modalStyles.sheet} onPress={(e) => e.stopPropagation()}>
-          <View style={modalStyles.header}>
-            <Text style={modalStyles.title}>Cambiar estado de cotización</Text>
-            <Text style={modalStyles.subtitle}>Selecciona el nuevo estado para este documento:</Text>
-          </View>
-
-          <View style={modalStyles.optionsContainer}>
-            {availableStatuses.map((status) => {
-              const styles = getStatusStyles(status);
-              const isSelected = currentStatus === status;
-
-              return (
-                <TouchableOpacity
-                  key={status}
-                  style={[
-                    modalStyles.optionCard,
-                    isSelected && { borderColor: styles.text, borderWidth: 1.5 }
-                  ]}
-                  activeOpacity={0.7}
-                  onPress={() => onConfirm(status)}
-                >
-                  <View style={modalStyles.optionHeader}>
-                    <View style={[modalStyles.badge, { backgroundColor: styles.bg }]}>
-                      <Text style={[modalStyles.badgeText, { color: styles.text }]}>
-                        {status}
-                      </Text>
-                    </View>
-                    {isSelected && (
-                      <Ionicons name="checkmark-circle" size={18} color={styles.text} />
-                    )}
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          <TouchableOpacity style={modalStyles.cancelBtn} onPress={onCancel}>
-            <Text style={modalStyles.cancelBtnText}>Cancelar</Text>
-          </TouchableOpacity>
-        </Pressable>
-      </Pressable>
-    </Modal>
   );
 }
 

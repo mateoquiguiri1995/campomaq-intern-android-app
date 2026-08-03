@@ -55,24 +55,19 @@ export function QuoteItemEditorModal({
 
   function adjustQuantity(delta: number) {
     const current = Math.max(1, parseInt(quantity, 10) || 1);
-    const maxStock = product?.stockQty ?? 0;
-    const limit = maxStock > 0 ? maxStock : 9999;
-    let next = Math.min(limit, Math.max(1, current + delta));
+    const next = Math.min(9999, Math.max(1, current + delta));
     setQuantity(String(next));
   }
 
   function handleQuantityChange(text: string) {
     const cleaned = text.replace(/[^0-9]/g, '');
     const value = parseInt(cleaned, 10);
-    const maxStock = product?.stockQty ?? 0;
-    const limit = maxStock > 0 ? maxStock : 9999;
-
     if (cleaned === '') {
       setQuantity('');
     } else if (isNaN(value) || value < 1) {
       setQuantity('1');
-    } else if (value > limit) {
-      setQuantity(String(limit));
+    } else if (value > 9999) {
+      setQuantity('9999');
     } else {
       setQuantity(cleaned);
     }
@@ -107,9 +102,8 @@ export function QuoteItemEditorModal({
   }
 
   function handleConfirm() {
-    const maxStock = product?.stockQty ?? 0;
-    const limit = maxStock > 0 ? maxStock : 9999;
-    const qty = Math.min(limit, Math.max(1, parseInt(quantity, 10) || 1));
+    // Aun sin existencias se puede generar la proforma; el PDF lo advertirá.
+    const qty = Math.min(9999, Math.max(1, parseInt(quantity, 10) || 1));
     const discountPct = discount.trim() ? Math.min(99, Math.max(0, parseFloat(discount))) : undefined;
     onConfirm({ quantity: qty, priceTier: tier, discountPct });
   }
