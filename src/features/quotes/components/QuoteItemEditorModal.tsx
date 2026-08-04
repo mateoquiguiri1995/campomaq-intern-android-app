@@ -80,6 +80,24 @@ export function QuoteItemEditorModal({
       cleaned = `${parts[0]}.${parts.slice(1).join('')}`;
     }
 
+    // Limit to at most 2 digits
+    let digitCount = 0;
+    let limited = '';
+    for (let i = 0; i < cleaned.length; i++) {
+      const char = cleaned[i];
+      if (char >= '0' && char <= '9') {
+        if (digitCount < 2) {
+          limited += char;
+          digitCount++;
+        }
+      } else {
+        if (digitCount < 2) {
+          limited += char;
+        }
+      }
+    }
+    cleaned = limited;
+
     if (cleaned === '' || cleaned === '.') {
       setDiscount(cleaned);
       return;

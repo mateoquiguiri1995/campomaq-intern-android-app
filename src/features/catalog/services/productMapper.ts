@@ -74,5 +74,7 @@ export function mapApiProduct(api: ApiProduct): Product {
     stockQty: getDevelopmentStock(api.product_id),
 
     marginPct: api.margin,
+
+    discount: api.discount,
   };
 }

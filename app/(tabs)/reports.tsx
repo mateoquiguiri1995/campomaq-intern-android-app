@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View, Modal, Pressable } from 'react-native';
 
 import { ScreenContainer } from '@/components/common/ScreenContainer';
 import { listQuotes, updateQuoteStatus } from '@/features/quotes/services/quoteService';
@@ -10,7 +10,7 @@ import type { Product } from '@/features/catalog/types';
 import { spacing } from '@/theme/spacing';
 import { colors } from '@/theme/colors';
 import { formatCurrency } from '@/utils/currency';
-import { styles } from '@/theme/styles/app_tabs_reports';
+import { modalStyles, styles } from '@/theme/styles/app_tabs_reports';
 
 type PeriodType = 'Semana' | 'Mes' | 'Trimestre';
 
@@ -51,6 +51,8 @@ export default function ReportsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>('Mes');
+  const [statusModalVisible, setStatusModalVisible] = useState(false);
+  const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
 
   const loadQuotes = useCallback(() => {
     let isMounted = true;
@@ -92,19 +94,8 @@ export default function ReportsScreen() {
 
   function handleStatusChange(quote: Quote) {
     if (quote.status !== 'Enviada') return;
-
-    Alert.alert('Actualizar cotización', '¿Cuál fue el resultado de esta cotización?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Rechazada',
-        style: 'destructive',
-        onPress: () => updateStatus(quote.id, 'Rechazada'),
-      },
-      {
-        text: 'Aceptada',
-        onPress: () => updateStatus(quote.id, 'Aceptada'),
-      },
-    ]);
+    setSelectedQuote(quote);
+    setStatusModalVisible(true);
   }
 
   async function updateStatus(id: string, status: QuoteStatus) {
@@ -207,8 +198,8 @@ export default function ReportsScreen() {
               <Text style={styles.darkCardMetricLabel}>Valor en pipeline</Text>
             </View>
             <View style={styles.darkCardMetric}>
-              <Text style={styles.darkCardMetricValue}>{displayPending}</Text>
-              <Text style={styles.darkCardMetricLabel}>Pendientes de respuesta</Text>
+              <Text style={styles.darkCardMetricValueCentered}>{displayPending}</Text>
+              <Text style={styles.darkCardMetricLabelCentered}>Pendientes de respuesta</Text>
             </View>
           </View>
         </View>
@@ -292,6 +283,57 @@ export default function ReportsScreen() {
       >
         <Ionicons name="add" size={28} color={colors.black} />
       </TouchableOpacity>
+
+      {/* Modal de actualización de estado */}
+      <Modal
+        visible={statusModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setStatusModalVisible(false)}
+      >
+        <Pressable style={modalStyles.overlay} onPress={() => setStatusModalVisible(false)}>
+          <Pressable style={modalStyles.sheet} onPress={(e) => e.stopPropagation()}>
+            <View style={modalStyles.header}>
+              <Text style={modalStyles.title}>Actualizar cotización</Text>
+              <Text style={modalStyles.subtitle}>
+                ¿Cuál fue el resultado de la cotización para {selectedQuote?.client.client.name}?
+              </Text>
+            </View>
+
+            <View style={modalStyles.optionsContainer}>
+              {/* Opción Aceptada */}
+              <Pressable
+                style={modalStyles.acceptedBtn}
+                onPress={() => {
+                  if (selectedQuote) {
+                    updateStatus(selectedQuote.id, 'Aceptada');
+                  }
+                  setStatusModalVisible(false);
+                }}
+              >
+                <Text style={modalStyles.acceptedBtnText}>ACEPTADA</Text>
+              </Pressable>
+
+              {/* Opción Rechazada */}
+              <Pressable
+                style={modalStyles.rejectedBtn}
+                onPress={() => {
+                  if (selectedQuote) {
+                    updateStatus(selectedQuote.id, 'Rechazada');
+                  }
+                  setStatusModalVisible(false);
+                }}
+              >
+                <Text style={modalStyles.rejectedBtnText}>RECHAZADA</Text>
+              </Pressable>
+            </View>
+
+            <Pressable style={modalStyles.cancelBtn} onPress={() => setStatusModalVisible(false)}>
+              <Text style={modalStyles.cancelBtnText}>Cancelar</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
     </ScreenContainer>
   );

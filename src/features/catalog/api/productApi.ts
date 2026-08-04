@@ -23,6 +23,7 @@ export interface ApiProduct {
   // Todavía no llegan desde la API.
   stock?: number;
   margin?: number;
+  discount?: number;
 }
 
 /**

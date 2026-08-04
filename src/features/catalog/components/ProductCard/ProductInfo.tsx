@@ -15,11 +15,8 @@ export function ProductInfo({
   const stockText = isLowStock ? `Stock - ${product.stockQty}` : `Disponible - ${product.stockQty}`;
 
   const isNew = product.isNew;
-  // Determinamos dinámicamente si el producto está en oferta para el demo
-  const isPromo = product.name.toLowerCase().includes('arranque') || 
-                  product.code.includes('0009') || 
-                  product.code.includes('157') || 
-                  product.name.toLowerCase().includes('nylon');
+  const discount = product.discount;
+  const hasDiscount = discount !== undefined && discount > 0;
 
   return (
     <View style={styles.container}>
@@ -59,9 +56,9 @@ export function ProductInfo({
           </View>
         )}
 
-        {isPromo && !isNew && (
+        {hasDiscount && !isNew && (
           <View style={styles.promoBadge}>
-            <Text style={styles.promoBadgeText}>Oferta</Text>
+            <Text style={styles.promoBadgeText}>-{discount}% Dcto.</Text>
           </View>
         )}
       </View>

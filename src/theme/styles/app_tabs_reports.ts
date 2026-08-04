@@ -94,10 +94,22 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
+  darkCardMetricValueCentered: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
   darkCardMetricLabel: {
     fontSize: 11,
     color: colors.gray,
     marginTop: 2,
+  },
+  darkCardMetricLabelCentered: {
+    fontSize: 11,
+    color: colors.gray,
+    marginTop: 2,
+    textAlign: 'center',
   },
   sectionTitle: {
     fontSize: 12,
@@ -236,33 +248,31 @@ export const modalStyles = StyleSheet.create({
     gap: 12,
     marginVertical: 8,
   },
-  optionCard: {
-    backgroundColor: '#F9F9F9',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    gap: 6,
-  },
-  optionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  acceptedBtn: {
+    width: '100%',
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#E6F4EA',
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-  },
-  badgeText: {
-    fontSize: 11,
+  acceptedBtnText: {
+    fontSize: 14,
     fontWeight: '700',
+    color: '#137333',
   },
-  optionDesc: {
-    fontSize: 12,
-    color: '#666666',
-    lineHeight: 16,
+  rejectedBtn: {
+    width: '100%',
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#FCE8E6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rejectedBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#C5221F',
   },
   cancelBtn: {
     width: '100%',

@@ -47,6 +47,8 @@ export interface Product {
   createdAt?: string;
 
   updatedAt?: string;
+
+  discount?: number;
 }
 
 export interface MonthlyGoal {
@@ -57,4 +59,3 @@ export interface MonthlyGoal {
   achievedMargin: number;
   percentage?: number;
 }
-

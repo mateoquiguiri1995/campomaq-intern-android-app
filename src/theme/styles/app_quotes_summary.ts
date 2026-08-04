@@ -22,7 +22,8 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingVertical: spacing.md,
+    paddingBottom: spacing.md,
+    paddingTop: 0,
     gap: spacing.sm,
   },
   center: {
@@ -42,7 +43,7 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.grayDark,
     letterSpacing: 0.5,
-    marginTop: spacing.sm,
+    marginTop: 0,
   },
   clientCard: {
     flexDirection: 'row',

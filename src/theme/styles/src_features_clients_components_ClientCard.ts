@@ -29,6 +29,7 @@ export const styles = StyleSheet.create({
     color: colors.black,
     fontWeight: '700',
     fontSize: 15,
+    flexShrink: 1,
   },
   scoreBadge: {
     backgroundColor: '#FFF9E6',
