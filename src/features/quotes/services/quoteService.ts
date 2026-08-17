@@ -82,8 +82,8 @@ export async function saveQuote(quote: Quote): Promise<void> {
 export async function deleteQuote(id: string): Promise<void> {
   const quotes = await readAll();
   const quote = quotes.find((item) => item.id === id);
-  if (quote && quote.status !== 'Pendiente') {
-    throw new Error('Una cotización enviada no puede eliminarse.');
+  if (quote && !['Pendiente', 'Rechazada'].includes(quote.status)) {
+    throw new Error('Una cotización aceptada no puede eliminarse.');
   }
   await writeAll(quotes.filter((quote) => quote.id !== id));
 }

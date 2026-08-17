@@ -34,11 +34,18 @@ export default function ClientsScreen() {
 
 
   const filteredClients = useMemo(() => {
-    if (clientFilter === 'Todos') return clients;
-    if (clientFilter === 'Crédito') {
-      return clients.filter((client) => client.hasPendingCredit);
-    }
-    return clients.filter((client) => client.score === clientFilter);
+    const availableClients = clients.filter(
+      (client) => client.recencyStatus !== 'Inactive' && client.frequencyClassification !== 'Inactive'
+    );
+    if (clientFilter === 'Todos') return availableClients;
+    if (clientFilter === 'Activo') return availableClients.filter((client) => client.recencyStatus === 'Active');
+    const frequencyByFilter: Record<Exclude<ClientFilter, 'Todos' | 'Activo'>, string> = {
+      'Muy recurrente': 'Highly recurrent',
+      Recurrente: 'Recurrent',
+      Ocasional: 'Occasional',
+      'Una vez': 'One-time',
+    };
+    return availableClients.filter((client) => client.frequencyClassification === frequencyByFilter[clientFilter]);
   }, [clients, clientFilter]);
 
   const hasActiveFilters = hasSearchFilter || clientFilter !== 'Todos';
@@ -124,7 +131,7 @@ export default function ClientsScreen() {
           >
             {CLIENT_FILTERS.map((filter) => {
               const isActive = clientFilter === filter;
-              const iconName = filter === 'Todos' ? 'list' : filter === 'Crédito' ? 'card' : 'star';
+              const iconName = filter === 'Todos' ? 'list' : filter === 'Activo' ? 'pulse' : 'repeat';
               return (
                 <TouchableOpacity
                   key={filter}
@@ -182,9 +189,9 @@ export default function ClientsScreen() {
   );
 }
 
-type ClientFilter = 'Todos' | 'A+' | 'A' | 'B' | 'Crédito';
+type ClientFilter = 'Todos' | 'Activo' | 'Muy recurrente' | 'Recurrente' | 'Ocasional' | 'Una vez';
 
-const CLIENT_FILTERS: ClientFilter[] = ['Todos', 'A+', 'A', 'B', 'Crédito'];
+const CLIENT_FILTERS: ClientFilter[] = ['Todos', 'Activo', 'Muy recurrente', 'Recurrente', 'Ocasional', 'Una vez'];
 
 import { styles } from '@/theme/styles/app_tabs_clients';
 import { inlineLayoutStyles } from '@/theme/styles/inlineLayout';

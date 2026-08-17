@@ -3,19 +3,6 @@ import type { ApiProduct } from '../api/productApi';
 import type { Product } from '../types';
 
 /**
- * Stock temporal para desarrollo. Ajusta aquí las existencias mientras el
- * endpoint todavía no entregue `stock`; un producto omitido queda sin stock.
- *
- * Integración REAL cuando el backend lo exponga:
- *   stockQty: api.stock,
- */
-const DEVELOPMENT_STOCK_BY_PRODUCT_ID: Record<number, number> = {};
-
-function getDevelopmentStock(productId: number): number {
-  return DEVELOPMENT_STOCK_BY_PRODUCT_ID[productId] ?? 0;
-}
-
-/**
  * El backend a veces devuelve rutas relativas (ej. logos de marca)
  * y a veces URLs absolutas ya listas para usar (ej. imágenes de
  * producto en Azure Blob Storage). Solo hay que anteponer la base
@@ -33,9 +20,12 @@ function resolveImageUrl(path: string): string {
  * Convierte un producto del backend
  * al modelo utilizado por la aplicación.
  */
-export function mapApiProduct(api: ApiProduct): Product {
+export function mapApiProduct(api: ApiProduct, stockQty: number): Product {
   return {
-    id: String(api.product_id),
+    // product_code es el identificador estable del catálogo y el que usa
+    // /stock. Usarlo también como id evita colisiones si product_id viene
+    // repetido o no está disponible en una respuesta del backend.
+    id: api.product_code,
 
     code: api.product_code,
 
@@ -69,9 +59,7 @@ export function mapApiProduct(api: ApiProduct): Product {
     priceB: api.price_card,
     priceC: api.price_credit,
 
-    // Temporal hasta que el backend los envíe.
-    // REAL: stockQty: api.stock,
-    stockQty: getDevelopmentStock(api.product_id),
+    stockQty,
 
     marginPct: api.margin,
 

@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View, Modal, Pressable } from 'react-native';
+import { useCallback, useRef, useState, type ReactNode } from 'react';
+import { ActivityIndicator, Alert, Animated, PanResponder, ScrollView, StyleSheet, Text, TouchableOpacity, View, Modal, Pressable } from 'react-native';
 
 import { ScreenContainer } from '@/components/common/ScreenContainer';
-import { listQuotes, updateQuoteStatus } from '@/features/quotes/services/quoteService';
+import { deleteQuote, listQuotes, updateQuoteStatus } from '@/features/quotes/services/quoteService';
+import { useQuoteBuilder } from '@/features/quotes/QuoteBuilderProvider';
 import type { Quote, QuoteItem, PriceTier, QuoteStatus } from '@/features/quotes/types';
 import type { Product } from '@/features/catalog/types';
 import { spacing } from '@/theme/spacing';
@@ -13,6 +14,74 @@ import { formatCurrency } from '@/utils/currency';
 import { modalStyles, styles } from '@/theme/styles/app_tabs_reports';
 
 type PeriodType = 'Semana' | 'Mes' | 'Trimestre';
+
+const SWIPE_DELETE_WIDTH = 72;
+
+function SwipeableQuoteCard({
+  quote,
+  onDelete,
+  children,
+}: {
+  quote: Quote;
+  onDelete: () => void;
+  children: ReactNode;
+}) {
+  const translateX = useRef(new Animated.Value(0)).current;
+  const [opened, setOpened] = useState(false);
+  const openedRef = useRef(false);
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gesture) =>
+        Math.abs(gesture.dx) > 8 && Math.abs(gesture.dx) > Math.abs(gesture.dy),
+      onPanResponderMove: (_, gesture) => {
+        const baseOffset = openedRef.current ? SWIPE_DELETE_WIDTH : 0;
+        translateX.setValue(
+          Math.min(SWIPE_DELETE_WIDTH, Math.max(0, baseOffset + gesture.dx))
+        );
+      },
+      onPanResponderRelease: (_, gesture) => {
+        const currentOffset = openedRef.current ? SWIPE_DELETE_WIDTH + gesture.dx : gesture.dx;
+        const shouldOpen = currentOffset > SWIPE_DELETE_WIDTH / 2;
+        openedRef.current = shouldOpen;
+        setOpened(shouldOpen);
+        Animated.spring(translateX, {
+          toValue: shouldOpen ? SWIPE_DELETE_WIDTH : 0,
+          useNativeDriver: true,
+          bounciness: 0,
+        }).start();
+      },
+      onPanResponderTerminate: () => {
+        openedRef.current = false;
+        setOpened(false);
+        Animated.spring(translateX, { toValue: 0, useNativeDriver: true, bounciness: 0 }).start();
+      },
+    })
+  ).current;
+
+  const canDelete = quote.status === 'Pendiente' || quote.status === 'Rechazada';
+  if (!canDelete) return <View>{children}</View>;
+
+  function handleDeletePress() {
+    openedRef.current = false;
+    setOpened(false);
+    Animated.spring(translateX, { toValue: 0, useNativeDriver: true, bounciness: 0 }).start();
+    onDelete();
+  }
+
+  return (
+    <View style={styles.swipeContainer} {...panResponder.panHandlers}>
+      <TouchableOpacity
+        style={[styles.deleteAction, !opened && styles.deleteActionHidden]}
+        onPress={handleDeletePress}
+        disabled={!opened}
+        accessibilityLabel="Eliminar cotización"
+      >
+        <Ionicons name="trash-outline" size={22} color="#FFFFFF" />
+      </TouchableOpacity>
+      <Animated.View style={{ transform: [{ translateX }] }}>{children}</Animated.View>
+    </View>
+  );
+}
 
 function getUnitPrice(product: Product, priceTier: PriceTier): number {
   if (priceTier === 'A') return product.priceA;
@@ -47,6 +116,7 @@ function getQuoteStatusText(quote: Quote): 'Enviada' | 'Aceptada' | 'Pendiente' 
 
 export default function ReportsScreen() {
   const router = useRouter();
+  const { resetBuilder } = useQuoteBuilder();
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -85,11 +155,30 @@ export default function ReportsScreen() {
   );
 
   function handleNewQuote() {
+    resetBuilder();
     router.push('/quotes/select-client');
   }
 
   function handleOpenQuote(quote: Quote) {
     router.push({ pathname: '/quotes/summary', params: { draftId: quote.id } });
+  }
+
+  function handleDeleteQuote(quote: Quote) {
+    Alert.alert('Eliminar cotización', 'Esta acción no se puede deshacer.', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Eliminar',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteQuote(quote.id);
+            loadQuotes();
+          } catch (error) {
+            Alert.alert('No se pudo eliminar', error instanceof Error ? error.message : 'Intenta de nuevo.');
+          }
+        },
+      },
+    ]);
   }
 
   function handleStatusChange(quote: Quote) {
@@ -238,12 +327,12 @@ export default function ReportsScreen() {
               const cotNum = cleanedId.substring(cleanedId.length - 4).toUpperCase();
 
               return (
-                <TouchableOpacity
-                  key={quote.id}
-                  style={styles.quoteCard}
-                  activeOpacity={0.8}
-                  onPress={() => handleOpenQuote(quote)}
-                >
+                <SwipeableQuoteCard key={quote.id} quote={quote} onDelete={() => handleDeleteQuote(quote)}>
+                  <TouchableOpacity
+                    style={styles.quoteCard}
+                    activeOpacity={0.8}
+                    onPress={() => handleOpenQuote(quote)}
+                  >
                   <View style={styles.quoteCardHeader}>
                     <Text style={styles.quoteCardCode}>
                       COT-{cotNum} · {formatQuoteDate(quote.createdAt)}
@@ -268,7 +357,8 @@ export default function ReportsScreen() {
                     <Text style={styles.quoteCardPrice}>{formatCurrency(total)}</Text>
                     <Text style={styles.quoteCardAction}>Ver &gt;</Text>
                   </View>
-                </TouchableOpacity>
+                  </TouchableOpacity>
+                </SwipeableQuoteCard>
               );
             })}
           </View>

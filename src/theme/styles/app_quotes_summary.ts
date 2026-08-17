@@ -143,6 +143,21 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.grayDark,
   },
+  stockWarningTag: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: '#FCE8E6',
+    borderRadius: 6,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  stockWarningText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.danger,
+  },
   counterRow: {
     flexDirection: 'row',
     alignItems: 'center',

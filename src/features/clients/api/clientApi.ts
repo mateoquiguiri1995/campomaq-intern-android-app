@@ -13,6 +13,22 @@ export interface ApiClient {
   phoneSecondary?: string | null;
   score?: 'A+' | 'A' | 'B';
   hasPendingCredit?: boolean;
+  daysSinceLastPurchase?: number;
+  frequencyClassification?: string;
+  lastPurchaseDate?: string;
+  purchaseMonthsLast6Months?: number;
+  recencyStatus?: string;
+  recentInvoices?: ApiClientInvoice[];
+  salesCountLast6Months?: number;
+  totalSalesLast6Months?: number;
+}
+
+export interface ApiClientInvoice {
+  invoiceDate: string;
+  invoiceNumber: number;
+  itemCount: number;
+  paymentType: string;
+  total: number;
 }
 
 export interface ApiClientsPage {

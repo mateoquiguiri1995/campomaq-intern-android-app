@@ -16,6 +16,7 @@ import type { MonthlyGoal, Product } from '@/features/catalog/types';
 import { getClients } from '@/features/clients/services/clientService';
 import type { Client } from '@/features/clients/types';
 import { listQuotes } from '@/features/quotes/services/quoteService';
+import { useQuoteBuilder } from '@/features/quotes/QuoteBuilderProvider';
 import type { Quote, QuoteItem, PriceTier } from '@/features/quotes/types';
 import { formatCurrency } from '@/utils/currency';
 
@@ -66,12 +67,18 @@ function formatTimeAgo(dateStr: string): string {
 
 export default function HomeScreen() {
   const { session, logout, updateAvatar } = useAuth();
+  const { resetBuilder } = useQuoteBuilder();
   const user = session?.user;
   const userName = user?.name ? user.name.split(' ')[0] : 'Vendedor';
 
   const avatarRef = useRef<View>(null);
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState({ top: 0, right: 0 });
+
+  function handleNewQuote() {
+    resetBuilder();
+    router.push('/quotes/select-client');
+  }
 
   function openMenu() {
     avatarRef.current?.measureInWindow((x: number, y: number, width: number, height: number) => {
@@ -370,7 +377,7 @@ export default function HomeScreen() {
         <TouchableOpacity
           style={styles.actionBtn}
           activeOpacity={0.7}
-          onPress={() => router.push('/quotes/select-client')}
+          onPress={handleNewQuote}
         >
           <Ionicons name="document-text" size={20} color={colors.black} />
           <Text style={styles.actionBtnText}>Cotizar</Text>
@@ -449,7 +456,7 @@ export default function HomeScreen() {
       <TouchableOpacity
         style={styles.fab}
         activeOpacity={0.7}
-        onPress={() => router.push('/quotes/select-client')}
+        onPress={handleNewQuote}
       >
         <Ionicons name="add" size={28} color={colors.black} />
       </TouchableOpacity>

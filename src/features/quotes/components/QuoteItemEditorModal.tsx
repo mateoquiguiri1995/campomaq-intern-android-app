@@ -53,6 +53,9 @@ export function QuoteItemEditorModal({
 
   if (!product) return null;
 
+  const selectedQuantity = parseInt(quantity, 10) || 0;
+  const hasSufficientStock = selectedQuantity <= product.stockQty;
+
   function adjustQuantity(delta: number) {
     const current = Math.max(1, parseInt(quantity, 10) || 1);
     const next = Math.min(9999, Math.max(1, current + delta));
@@ -153,9 +156,11 @@ export function QuoteItemEditorModal({
             <Text style={styles.sectionLabel}>Cantidad</Text>
             <Text style={[
               styles.stockLabel,
-              (product.stockQty ?? 0) > 0 ? styles.stockOk : styles.stockOut
+              hasSufficientStock ? styles.stockOk : styles.stockOut
             ]}>
-              Stock disponible: {product.stockQty ?? 0}
+              {hasSufficientStock
+                ? `Stock disponible: ${product.stockQty}`
+                : `Stock insuficiente: ${product.stockQty} disponible`}
             </Text>
           </View>
           <View style={styles.quantityRow}>

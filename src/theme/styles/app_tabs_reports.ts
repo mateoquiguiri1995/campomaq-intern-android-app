@@ -155,6 +155,25 @@ export const styles = StyleSheet.create({
     padding: spacing.md,
     gap: spacing.sm,
   },
+  swipeContainer: {
+    position: 'relative',
+    overflow: 'hidden',
+    borderRadius: 16,
+  },
+  deleteAction: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 72,
+    backgroundColor: '#C5221F',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  deleteActionHidden: {
+    opacity: 0,
+  },
   quoteCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',

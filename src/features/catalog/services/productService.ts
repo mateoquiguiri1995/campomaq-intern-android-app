@@ -3,7 +3,10 @@ import type { Product } from '../types';
 import {
   BACKEND_PRODUCTS_PAGE_SIZE,
   getProductsFromApi,
+  getStockFromApi,
   searchProductsFromApi,
+  type ApiProduct,
+  type ApiStock,
   type GetProductsFromApiParams,
 } from '../api/productApi';
 
@@ -22,13 +25,34 @@ export interface ProductsResult {
 }
 
 /**
+ * Une productos y existencias mediante el código de producto. Un producto
+ * sin registro de stock, con stock cero o negativo no está disponible.
+ */
+function mapAvailableProducts(items: ApiProduct[], stockItems: ApiStock[]): Product[] {
+  const stockByProductCode = new Map(
+    stockItems.map(({ product_code, stock }) => [product_code, stock])
+  );
+
+  return items.flatMap((item) => {
+    const stockQty = stockByProductCode.get(item.product_code);
+
+    return typeof stockQty === 'number' && stockQty > 0
+      ? [mapApiProduct(item, stockQty)]
+      : [];
+  });
+}
+
+/**
  * Obtiene productos paginados desde la API.
  */
 export async function getProducts(params: GetProductsParams = {}): Promise<ProductsResult> {
-  const items = await getProductsFromApi(params);
+  const [items, stockItems] = await Promise.all([
+    getProductsFromApi(params),
+    getStockFromApi(),
+  ]);
 
   return {
-    products: items.map(mapApiProduct),
+    products: mapAvailableProducts(items, stockItems),
     page: params.page ?? 1,
     hasMore: items.length >= BACKEND_PRODUCTS_PAGE_SIZE,
   };
@@ -40,8 +64,8 @@ export async function getProducts(params: GetProductsParams = {}): Promise<Produ
  * sola respuesta, así que no hace falta recorrer páginas.
  */
 export async function getAllProducts(): Promise<Product[]> {
-  const items = await getProductsFromApi();
-  return items.map(mapApiProduct);
+  const [items, stockItems] = await Promise.all([getProductsFromApi(), getStockFromApi()]);
+  return mapAvailableProducts(items, stockItems);
 }
 
 /**
@@ -52,7 +76,10 @@ export async function searchProducts(query: string): Promise<Product[]> {
     return getAllProducts();
   }
 
-  const apiProducts = await searchProductsFromApi(query);
+  const [apiProducts, stockItems] = await Promise.all([
+    searchProductsFromApi(query),
+    getStockFromApi(),
+  ]);
 
-  return apiProducts.map(mapApiProduct);
+  return mapAvailableProducts(apiProducts, stockItems);
 }

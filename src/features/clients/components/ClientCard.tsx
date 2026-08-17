@@ -51,7 +51,7 @@ export function ClientCard({ client }: ClientCardProps) {
       </View>
       <View style={styles.rightContent}>
         <Text style={styles.total}>{formatListCurrency(client.totalPurchases)}</Text>
-        <Text style={styles.totalLabel}>vida total</Text>
+        <Text style={styles.totalLabel}>ventas 6 meses</Text>
       </View>
     </View>
   );

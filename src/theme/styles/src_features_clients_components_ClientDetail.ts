@@ -71,6 +71,7 @@ export const styles = StyleSheet.create({
   tabLabel: { ...typography.body, color: colors.gray },
   tabLabelActive: { color: colors.black, fontWeight: '700' },
   section: { gap: spacing.sm },
+  emptyText: { ...typography.body, color: colors.grayDark, textAlign: 'center', paddingVertical: spacing.lg },
   invoiceCard: {
     backgroundColor: colors.surface,
     borderWidth: 1,

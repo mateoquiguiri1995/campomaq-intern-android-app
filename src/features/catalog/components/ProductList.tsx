@@ -46,7 +46,7 @@ export function ProductList({
       style={styles.list}
       contentContainerStyle={styles.listContent}
       data={products}
-      keyExtractor={(item) => item.id}
+      keyExtractor={(item) => item.code}
 
       renderItem={({ item }) => (
         <ProductCard product={item} onPressDetails={onPressProduct} />

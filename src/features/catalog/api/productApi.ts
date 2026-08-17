@@ -20,10 +20,14 @@ export interface ApiProduct {
   description?: string;
   link: string[];
 
-  // Todavía no llegan desde la API.
-  stock?: number;
   margin?: number;
   discount?: number;
+}
+
+/** Existencia de un producto devuelta por el endpoint /stock. */
+export interface ApiStock {
+  product_code: string;
+  stock: number;
 }
 
 /**
@@ -50,6 +54,11 @@ export async function getProductsFromApi(
 
   const query = searchParams.toString();
   return apiGet<ApiProduct[]>(`/products${query ? `?${query}` : ''}`);
+}
+
+/** Obtiene las existencias vigentes identificadas por código de producto. */
+export async function getStockFromApi(): Promise<ApiStock[]> {
+  return apiGet<ApiStock[]>('/stock');
 }
 
 /**

@@ -9,7 +9,6 @@ import { colors } from '@/theme/colors';
 import { radius, spacing } from '@/theme/spacing';
 import { typography } from '@/theme/typography';
 
-import { downloadMockInvoicePdf } from '../services/clientDetailService';
 import type { ClientDetail as ClientDetailType, ClientInvoice } from '../types';
 import { ClientAvatar } from './ClientAvatar';
 import { useQuoteBuilder } from '@/features/quotes/QuoteBuilderProvider';
@@ -57,35 +56,21 @@ function ActionButton({
   );
 }
 
-function InvoiceCard({ invoice, clientName }: { invoice: ClientInvoice; clientName: string }) {
-  const [downloading, setDownloading] = useState(false);
-  const isPaid = invoice.status === 'paid';
-
-  async function handleDownload() {
-    try {
-      setDownloading(true);
-      await downloadMockInvoicePdf(invoice, clientName);
-    } catch (error) {
-      Alert.alert(
-        'No pudimos generar el PDF',
-        error instanceof Error ? error.message : 'Inténtalo de nuevo.'
-      );
-    } finally {
-      setDownloading(false);
-    }
-  }
-
+function InvoiceCard({ invoice }: { invoice: ClientInvoice }) {
+  const router = useRouter();
   return (
-    <View style={styles.invoiceCard}>
+    <Pressable style={styles.invoiceCard} onPress={() => router.push(`/client/invoice/${invoice.invoiceNumber}`)}>
       <View style={styles.invoiceTopRow}>
         <Text style={styles.invoiceHeader}>
           {formatDate(invoice.issuedAt).toUpperCase()} · {invoice.code}
         </Text>
-        <Badge
-          label={isPaid ? 'Pagada' : 'Pendiente'}
-          backgroundColor={isPaid ? '#E8F5E9' : '#FFF3E0'}
-          textColor={isPaid ? '#2E7D32' : '#B25E00'}
-        />
+        {invoice.status && (
+          <Badge
+            label={invoice.status === 'paid' ? 'Pagada' : 'Pendiente'}
+            backgroundColor={invoice.status === 'paid' ? '#E8F5E9' : '#FFF3E0'}
+            textColor={invoice.status === 'paid' ? '#2E7D32' : '#B25E00'}
+          />
+        )}
       </View>
 
       <Text style={styles.invoiceName}>{invoice.name}</Text>
@@ -97,16 +82,9 @@ function InvoiceCard({ invoice, clientName }: { invoice: ClientInvoice; clientNa
 
       <View style={styles.invoiceBottomRow}>
         <Text style={styles.invoiceTotal}>{formatCurrency(invoice.total)}</Text>
-        <Pressable
-          style={({ pressed }) => [styles.detailLink, pressed && styles.pressed, downloading && styles.disabled]}
-          onPress={handleDownload}
-          disabled={downloading}
-        >
-          <Text style={styles.detailLinkText}>{downloading ? 'Generando...' : 'Ver detalle'}</Text>
-          <Ionicons name="chevron-forward" size={14} color={colors.primaryDark} />
-        </Pressable>
+        <Ionicons name="chevron-forward" size={18} color={colors.primaryDark} />
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -172,16 +150,16 @@ export function ClientDetail({ client }: ClientDetailProps) {
           onPress={() => openContact(`mailto:${client.email}`, 'No hay correo registrado para este cliente.')}
         />
         <ActionButton
-          icon="cart"
-          label="Nueva venta"
+          icon="document-text"
+          label="Cotizar"
           onPress={handleNewSale}
         />
       </View>
 
       <View style={styles.metrics}>
-        <MetricCard label="VIDA TOTAL" value={formatCompactCurrency(client.totalPurchases)} />
-        <MetricCard label="COMPRAS" value={String(client.purchaseCount)} />
-        <MetricCard label="SCORE" value={client.scoreLabel} />
+        <MetricCard label="VENTAS 6 MESES" value={formatCompactCurrency(client.totalPurchases)} />
+        <MetricCard label="COMPRAS 6 MESES" value={String(client.purchaseCount)} />
+        <MetricCard label="FRECUENCIA" value={client.scoreLabel} />
       </View>
 
       <View style={styles.tabs}>
@@ -192,9 +170,11 @@ export function ClientDetail({ client }: ClientDetailProps) {
 
       {activeTab === 'history' && (
         <View style={styles.section}>
-          {client.invoices.map((invoice) => (
-            <InvoiceCard key={invoice.id} invoice={invoice} clientName={client.name} />
-          ))}
+          {client.invoices.length > 0 ? (
+            client.invoices.map((invoice) => <InvoiceCard key={invoice.id} invoice={invoice} />)
+          ) : (
+            <Text style={styles.emptyText}>No hay facturas recientes para este cliente.</Text>
+          )}
         </View>
       )}
 
@@ -204,18 +184,18 @@ export function ClientDetail({ client }: ClientDetailProps) {
           <DataRow label="RUC/CI" value={client.ruc} />
           <DataRow label="Ubicación" value={client.location ?? 'No registrada'} />
           <DataRow label="Teléfono" value={client.phone ?? 'No registrado'} />
+          <DataRow label="Teléfono secundario" value={client.phoneSecondary ?? 'No registrado'} />
           <DataRow label="Correo" value={client.email ?? 'No registrado'} />
+          <DataRow label="Última compra" value={client.lastPurchaseDate ? formatDate(client.lastPurchaseDate) : 'Sin compras registradas'} />
+          <DataRow label="Días desde última compra" value={client.daysSinceLastPurchase?.toString() ?? 'No disponible'} />
+          <DataRow label="Estado de actividad" value={getRecencyLabel(client.recencyStatus)} />
+          <DataRow label="Meses con compras (últimos 6)" value={client.purchaseMonthsLast6Months?.toString() ?? '0'} />
         </View>
       )}
 
       {activeTab === 'notes' && (
         <View style={styles.section}>
-          {client.notes.map((note) => (
-            <View key={note} style={styles.noteCard}>
-              <Ionicons name="chatbox-ellipses-outline" size={18} color={colors.primaryDark} />
-              <Text style={styles.noteText}>{note}</Text>
-            </View>
-          ))}
+          <Text style={styles.emptyText}>No hay notas comerciales registradas para este cliente.</Text>
         </View>
       )}
     </View>
@@ -223,7 +203,7 @@ export function ClientDetail({ client }: ClientDetailProps) {
 }
 
 function MetricCard({ label, value }: { label: string; value: string }) {
-  const isScore = label === 'SCORE';
+  const isScore = label === 'FRECUENCIA';
   return (
     <View style={[styles.metricCard, isScore && styles.metricCardScore]}>
       <Text style={[styles.metricLabel, isScore && styles.metricLabelScore]}>{label}</Text>
@@ -254,6 +234,12 @@ function DataRow({ label, value }: { label: string; value: string }) {
       <Text style={styles.dataValue}>{value}</Text>
     </View>
   );
+}
+
+function getRecencyLabel(value?: string): string {
+  if (value === 'Active') return 'Activo';
+  if (value === 'At risk') return 'En riesgo';
+  return 'Sin clasificar';
 }
 
 import { styles } from '@/theme/styles/src_features_clients_components_ClientDetail';

@@ -263,6 +263,15 @@ export default function QuoteSummaryScreen() {
                     </TouchableOpacity>
                   </View>}
                 </View>
+
+                {item.quantity > item.product.stockQty && (
+                  <View style={styles.stockWarningTag}>
+                    <Ionicons name="warning-outline" size={14} color={colors.danger} />
+                    <Text style={styles.stockWarningText}>
+                      Stock insuficiente: {item.product.stockQty} disponible
+                    </Text>
+                  </View>
+                )}
               </TouchableOpacity>
             ))}
           </View>

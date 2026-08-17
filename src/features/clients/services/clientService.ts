@@ -1,4 +1,4 @@
-import type { Client, ClientScore } from '../types';
+import type { Client } from '../types';
 import { getClientsFromApi, type ApiClient } from '../api/clientApi';
 
 export interface GetClientsParams {
@@ -14,29 +14,31 @@ export interface ClientsResult {
 }
 
 export function mapApiClient(api: ApiClient): Client {
-  const score = api.score || 'B';
-  const purchasesByScore: Record<string, number> = {
-    'A+': 6320,
-    'A': 1250,
-    'B': 980,
-  };
-  const datesByScore: Record<string, string> = {
-    'A+': '2026-04-12',
-    'A': '2026-01-05',
-    'B': '2026-02-18',
-  };
-
   return {
     id: api.id,
     name: api.name,
     ruc: api.id,
     email: api.email || undefined,
     phone: api.phonePrimary || api.phoneSecondary || undefined,
+    phoneSecondary: api.phoneSecondary || undefined,
     location: api.address || undefined,
-    score: score as ClientScore,
-    hasPendingCredit: api.hasPendingCredit ?? false,
-    totalPurchases: purchasesByScore[score] ?? 540,
-    lastPurchaseDate: datesByScore[score] ?? '2025-11-30',
+    totalPurchases: api.totalSalesLast6Months ?? 0,
+    lastPurchaseDate: api.lastPurchaseDate,
+    daysSinceLastPurchase: api.daysSinceLastPurchase,
+    frequencyClassification: api.frequencyClassification,
+    purchaseMonthsLast6Months: api.purchaseMonthsLast6Months,
+    recencyStatus: api.recencyStatus,
+    salesCountLast6Months: api.salesCountLast6Months ?? 0,
+    recentInvoices: api.recentInvoices?.map((invoice) => ({
+      id: `${api.id}-${invoice.invoiceNumber}`,
+      invoiceNumber: invoice.invoiceNumber,
+      issuedAt: invoice.invoiceDate,
+      code: `Factura #${invoice.invoiceNumber}`,
+      name: 'Factura de venta',
+      itemCount: invoice.itemCount,
+      paymentMethod: invoice.paymentType,
+      total: invoice.total,
+    })) ?? [],
   };
 }
 

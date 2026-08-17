@@ -16,6 +16,13 @@ export interface Client {
   /** Indica si el cliente tiene crédito pendiente. Todavía no llega desde la API. */
   hasPendingCredit?: boolean;
   lastPurchaseDate?: string;
+  phoneSecondary?: string;
+  daysSinceLastPurchase?: number;
+  frequencyClassification?: string;
+  purchaseMonthsLast6Months?: number;
+  recencyStatus?: string;
+  salesCountLast6Months?: number;
+  recentInvoices?: ClientInvoice[];
 }
 
 export type ClientScore = 'A+' | 'A' | 'B';
@@ -24,12 +31,13 @@ export type InvoiceStatus = 'paid' | 'pending';
 
 export interface ClientInvoice {
   id: string;
+  invoiceNumber: number;
   issuedAt: string;
   code: string;
   name: string;
   itemCount: number;
   paymentMethod: string;
-  status: InvoiceStatus;
+  status?: InvoiceStatus;
   total: number;
 }
 
