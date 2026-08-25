@@ -82,6 +82,35 @@ export const styles = StyleSheet.create({
   topGroup: {
     gap: 8,
   },
+  featuredClient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: '#FFFBE6',
+    borderWidth: 1,
+    borderColor: '#F1E59B',
+    borderRadius: radius.md,
+    padding: spacing.sm,
+  },
+  featuredClientText: {
+    flex: 1,
+  },
+  featuredClientLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.grayDark,
+    letterSpacing: 0.4,
+  },
+  featuredClientName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.black,
+  },
+  featuredClientValue: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.black,
+  },
   fab: {
     position: 'absolute',
     bottom: spacing.md,
@@ -115,4 +144,3 @@ export const styles = StyleSheet.create({
     color: '#D32F2F',
   },
 });
-

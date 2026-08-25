@@ -19,15 +19,19 @@ export function mapApiClient(apiClient: ApiClient): Client {
     purchaseMonthsLast6Months: apiClient.purchaseMonthsLast6Months,
     recencyStatus: apiClient.recencyStatus,
     salesCountLast6Months: apiClient.salesCountLast6Months ?? 0,
-    recentInvoices: apiClient.recentInvoices?.map((invoice) => ({
-      id: `${apiClient.id}-${invoice.invoiceNumber}`,
-      invoiceNumber: invoice.invoiceNumber,
-      issuedAt: invoice.invoiceDate,
-      code: `Factura #${invoice.invoiceNumber}`,
-      name: 'Factura de venta',
-      itemCount: invoice.itemCount,
-      paymentMethod: invoice.paymentType,
-      total: invoice.total,
-    })) ?? [],
+    recentInvoices: apiClient.recentInvoices?.map((invoice) => {
+      const isSalesNote = invoice.total === 0;
+      return {
+        id: `${apiClient.id}-${invoice.invoiceNumber}`,
+        invoiceNumber: invoice.invoiceNumber,
+        issuedAt: invoice.invoiceDate,
+        code: isSalesNote ? `Nota de Venta #${invoice.invoiceNumber}` : `Factura #${invoice.invoiceNumber}`,
+        name: isSalesNote ? 'Nota de venta' : 'Factura de venta',
+        itemCount: invoice.itemCount,
+        paymentMethod: invoice.paymentType,
+        total: invoice.total,
+        isSalesNote,
+      };
+    }) ?? [],
   };
 }

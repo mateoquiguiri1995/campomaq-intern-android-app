@@ -1,6 +1,7 @@
 import {
   ActivityIndicator,
   FlatList,
+  RefreshControl,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -30,6 +31,10 @@ interface ProductListProps {
 
   /** Búsqueda en curso: evita mostrar "sin resultados" mientras aún no llega la respuesta. */
   searching?: boolean;
+
+  refreshing?: boolean;
+
+  onRefresh?: () => void;
 }
 
 export function ProductList({
@@ -40,6 +45,8 @@ export function ProductList({
   onClearFilters,
   onPressProduct,
   searching,
+  refreshing = false,
+  onRefresh,
 }: ProductListProps) {
   return (
     <FlatList
@@ -47,19 +54,14 @@ export function ProductList({
       contentContainerStyle={styles.listContent}
       data={products}
       keyExtractor={(item) => item.code}
-
       renderItem={({ item }) => (
         <ProductCard product={item} onPressDetails={onPressProduct} />
       )}
-
-      ItemSeparatorComponent={() => (
-        <View style={styles.separator} />
-      )}
-
+      refreshControl={
+        onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primaryDark]} /> : undefined
+      }
       onEndReached={() => {
-        if (hasMore) {
-          onLoadMore();
-        }
+        if (hasMore) onLoadMore();
       }}
 
       onEndReachedThreshold={0.5}

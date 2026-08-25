@@ -1,23 +1,19 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, router } from 'expo-router';
-import React, { useCallback, useState, useRef } from 'react';
-import * as ImagePicker from 'expo-image-picker';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View, Modal, Dimensions, Pressable, Image as RNImage, Alert } from 'react-native';
-
 import { ScreenContainer } from '@/components/common/ScreenContainer';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { colors } from '@/theme/colors';
-import { radius, spacing } from '@/theme/spacing';
-import { typography } from '@/theme/typography';
-
+import { spacing } from '@/theme/spacing';
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { router, useFocusEffect } from 'expo-router';
+import React, { useCallback, useRef, useState } from 'react';
+import { Alert, Dimensions, Modal, Pressable, RefreshControl, Image as RNImage, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 // Importes de servicios y tipos reales
-import { getMonthlyGoal } from '@/features/catalog/services/goalService';
-import type { MonthlyGoal, Product } from '@/features/catalog/types';
-import { getClients } from '@/features/clients/services/clientService';
-import type { Client } from '@/features/clients/types';
-import { listQuotes } from '@/features/quotes/services/quoteService';
+import { useAppBootstrap } from '@/features/bootstrap/AppBootstrapProvider';
+import type { Product } from '@/features/catalog/types';
 import { useQuoteBuilder } from '@/features/quotes/QuoteBuilderProvider';
-import type { Quote, QuoteItem, PriceTier } from '@/features/quotes/types';
+import { listQuotes } from '@/features/quotes/services/quoteService';
+import type { PriceTier, Quote, QuoteItem } from '@/features/quotes/types';
+import { useSellerDashboard } from '@/features/sellers/SellerProvider';
 import { formatCurrency } from '@/utils/currency';
 
 function getHeaderDate(): string {
@@ -67,7 +63,10 @@ function formatTimeAgo(dateStr: string): string {
 
 export default function HomeScreen() {
   const { session, logout, updateAvatar } = useAuth();
+  const userId = session?.user.id;
   const { resetBuilder } = useQuoteBuilder();
+  const { seller, refresh: refreshSeller } = useSellerDashboard();
+  const { reload, isLoading: isRefreshingData } = useAppBootstrap();
   const user = session?.user;
   const userName = user?.name ? user.name.split(' ')[0] : 'Vendedor';
 
@@ -129,18 +128,17 @@ export default function HomeScreen() {
     ]);
   }
 
-  const [goal, setGoal] = useState<MonthlyGoal | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
-  const [topClients, setTopClients] = useState<Client[]>([]);
 
   const loadDashboardData = useCallback(() => {
-    getMonthlyGoal().then(setGoal).catch(() => {});
-    listQuotes().then(setQuotes).catch(() => {});
-    getClients().then(res => {
-      const sorted = [...res.clients].sort((a, b) => (b.totalPurchases ?? 0) - (a.totalPurchases ?? 0));
-      setTopClients(sorted.slice(0, 3));
-    }).catch(() => {});
-  }, []);
+    if (userId) listQuotes(userId).then(setQuotes).catch(() => {});
+  }, [userId]);
+
+  const handleRefresh = useCallback(() => {
+    reload();
+    loadDashboardData();
+    refreshSeller();
+  }, [loadDashboardData, refreshSeller, reload]);
 
   useFocusEffect(
     useCallback(() => {
@@ -157,8 +155,8 @@ export default function HomeScreen() {
   };
 
   // 1. Cálculo dinámico de la meta del mes
-  const target = goal?.targetMargin ?? 35700;
-  const achieved = goal?.achievedMargin ?? 24300;
+  const target = seller?.monthlyGoal ?? 0;
+  const achieved = seller?.currentMonthSales ?? 0;
   const pct = target > 0 ? Math.min(100, Math.round((achieved / target) * 100)) : 0;
   const missing = Math.max(0, target - achieved);
 
@@ -166,80 +164,13 @@ export default function HomeScreen() {
   const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
   const daysRemaining = lastDay - today.getDate();
 
-  // 2. Cálculo dinámico de métricas (Visitas, Cotizaciones, Ventas cerradas y Ticket promedio)
   const totalQuotesCount = quotes.length;
-  // Enviada significa compartida; la venta solo se registra al ser aceptada.
-  const closedSales = quotes.filter(q => q.status === 'Aceptada');
-  const closedSalesCount = closedSales.length;
+  // Actividad reciente: datos locales generados dentro de la aplicación.
+  const categoryTotal = seller?.salesByCategory.reduce((sum, item) => sum + item.totalValue, 0) ?? 0;
+  const displayCategories = seller?.salesByCategory.slice(0, 4) ?? [];
+  const displayTopClients = seller?.topClients.slice(0, 3) ?? [];
+  const displayTopProducts = seller?.topProducts.slice(0, 3) ?? [];
 
-  const avgTicket = closedSalesCount > 0
-    ? Math.round(closedSales.reduce((sum, q) => sum + getQuoteTotal(q), 0) / closedSalesCount)
-    : 0;
-
-  // 3. Cálculo dinámico de ventas por categoría
-  const categoryTotals: Record<string, number> = {
-    'Cultivadores': 0,
-    'Motosierras': 0,
-    'Bombas': 0,
-    'Generadores': 0,
-  };
-  let totalSalesSum = 0;
-  closedSales.forEach(q => {
-    q.items.forEach(item => {
-      const lineTotal = getLineTotal(item);
-      const cat = item.product.category ?? '';
-      let dashboardCat = '';
-      if (cat.toLowerCase().includes('cultivador')) {
-        dashboardCat = 'Cultivadores';
-      } else if (cat.toLowerCase().includes('motosierra') || cat.toLowerCase().includes('sierra')) {
-        dashboardCat = 'Motosierras';
-      } else if (cat.toLowerCase().includes('bomba')) {
-        dashboardCat = 'Bombas';
-      } else if (cat.toLowerCase().includes('generador')) {
-        dashboardCat = 'Generadores';
-      }
-
-      if (dashboardCat && categoryTotals[dashboardCat] !== undefined) {
-        categoryTotals[dashboardCat] += lineTotal;
-        totalSalesSum += lineTotal;
-      }
-    });
-  });
-
-  const categoryPercentages = {
-    'Cultivadores': totalSalesSum > 0 ? Math.round((categoryTotals['Cultivadores'] / totalSalesSum) * 100) : 0,
-    'Motosierras': totalSalesSum > 0 ? Math.round((categoryTotals['Motosierras'] / totalSalesSum) * 100) : 0,
-    'Bombas': totalSalesSum > 0 ? Math.round((categoryTotals['Bombas'] / totalSalesSum) * 100) : 0,
-    'Generadores': totalSalesSum > 0 ? Math.round((categoryTotals['Generadores'] / totalSalesSum) * 100) : 0,
-  };
-
-  // 4. Ranking de mejores clientes (Dinámico desde la base de datos de clientes)
-  const displayTopClients = topClients.length >= 3 ? topClients : [
-    { id: '1', name: 'Florícola San Rafael', totalPurchases: 6320 },
-    { id: '2', name: 'Hacienda La Florida', totalPurchases: 4046.5 },
-    { id: '3', name: 'Vivero Los Andes', totalPurchases: 1250 },
-  ];
-
-  // 5. Ranking de productos más vendidos (Calculado dinámicamente desde cotizaciones)
-  const productSalesMap: Record<string, { product: Product; qty: number; total: number }> = {};
-  closedSales.forEach(q => {
-    q.items.forEach(item => {
-      const pid = item.product.id;
-      if (!productSalesMap[pid]) {
-        productSalesMap[pid] = { product: item.product, qty: 0, total: 0 };
-      }
-      productSalesMap[pid].qty += item.quantity;
-      productSalesMap[pid].total += getLineTotal(item);
-    });
-  });
-  const sortedProducts = Object.values(productSalesMap).sort((a, b) => b.qty - a.qty);
-  const displayTopProducts = sortedProducts.slice(0, 3).map(p => ({
-    name: p.product.name,
-    total: formatCurrency(Math.round(p.total)),
-    subtitle: `${p.qty} ${p.qty === 1 ? 'ud' : 'uds'}`,
-  }));
-
-  // 6. Actividades Recientes (Cálculo dinámico basado en cotizaciones y clientes nuevos)
   const recentActivitiesList: Array<{
     id: string;
     icon: keyof typeof Ionicons.glyphMap;
@@ -259,12 +190,12 @@ export default function HomeScreen() {
     let pricePrefix = '';
 
     if (q.status === 'Aceptada') {
-      activityIcon = 'cart';
-      activityTitle = `Venta cerrada - ${clientName}`;
+      activityIcon = 'checkmark-circle';
+      activityTitle = `Cotización aceptada - ${clientName}`;
       activityStyle = styles.activityGreen;
-      pricePrefix = '+';
+      pricePrefix = '';
     } else if (q.status === 'Enviada') {
-      activityIcon = 'document-text';
+      activityIcon = 'send';
       activityTitle = `Cotización enviada - ${clientName}`;
     } else if (q.status === 'Rechazada') {
       activityIcon = 'document-text';
@@ -289,7 +220,7 @@ export default function HomeScreen() {
   });
 
   const sortedActivities = recentActivitiesList.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
-  const displayActivities = sortedActivities.slice(0, 3);
+  const displayActivities = sortedActivities.slice(0, 5);
 
   return (
     <ScreenContainer scroll={false}>
@@ -297,6 +228,7 @@ export default function HomeScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={isRefreshingData} onRefresh={handleRefresh} colors={[colors.primaryDark]} />}
       >
         {/* Cabecera Personalizada */}
         <View style={styles.headerRow}>
@@ -340,10 +272,10 @@ export default function HomeScreen() {
         <View style={styles.metricsRow}>
           <View style={styles.metricCard}>
             <View style={styles.metricIconContainer}>
-              <Ionicons name="location" size={16} color={colors.black} />
-            </View>
-            <Text style={styles.metricValue}>6</Text>
-            <Text style={styles.metricLabel}>Visitas hoy</Text>
+              <Ionicons name="cash-outline" size={16} color={colors.black} />
+              </View>
+              <Text style={styles.metricValue}>{formatCurrency(seller?.yearTotalSales ?? 0)}</Text>
+              <Text style={styles.metricLabel}>Venta anual</Text>
           </View>
           <View style={styles.metricCard}>
             <View style={styles.metricIconContainer}>
@@ -358,14 +290,14 @@ export default function HomeScreen() {
             <View style={styles.metricIconContainer}>
               <Ionicons name="cart" size={16} color={colors.black} />
             </View>
-            <Text style={styles.metricValue}>{closedSalesCount > 0 ? closedSalesCount : 2}</Text>
-            <Text style={styles.metricLabel}>Ventas cerradas</Text>
+            <Text style={styles.metricValue}>{seller?.yearSalesCount ?? 0}</Text>
+            <Text style={styles.metricLabel}>Ventas del año</Text>
           </View>
           <View style={styles.metricCard}>
             <View style={styles.metricIconContainer}>
               <Ionicons name="trending-up" size={16} color={colors.black} />
             </View>
-            <Text style={styles.metricValue}>{formatCurrency(avgTicket)}</Text>
+            <Text style={styles.metricValue}>{formatCurrency(seller?.yearAverageTicket ?? 0)}</Text>
             <Text style={styles.metricLabel}>Ticket promedio</Text>
           </View>
         </View>
@@ -403,10 +335,14 @@ export default function HomeScreen() {
       {/* Ventas por Categoría */}
       <Text style={styles.sectionTitle}>VENTAS POR CATEGORÍA</Text>
       <View style={styles.categoryCard}>
-        <CategoryRow label="Cultivadores" percentage={categoryPercentages['Cultivadores']} color="#1A1A1A" />
-        <CategoryRow label="Motosierras" percentage={categoryPercentages['Motosierras']} color={colors.primary} />
-        <CategoryRow label="Bombas" percentage={categoryPercentages['Bombas']} color="#8A8A8A" />
-        <CategoryRow label="Generadores" percentage={categoryPercentages['Generadores']} color="#D9D9D9" />
+        {displayCategories.map((category, index) => (
+          <CategoryRow
+            key={category.categoryName}
+            label={category.categoryName}
+            percentage={categoryTotal > 0 ? Math.round((category.totalValue / categoryTotal) * 100) : 0}
+            color={['#1A1A1A', colors.primary, '#8A8A8A', '#D9D9D9'][index]}
+          />
+        ))}
       </View>
 
       {/* Mejores Clientes */}
@@ -414,10 +350,10 @@ export default function HomeScreen() {
       <View style={styles.rankingCard}>
         {displayTopClients.map((c, idx) => (
           <RankingRow
-            key={c.id}
+            key={c.clientCode}
             index={idx + 1}
-            name={c.name}
-            value={formatCurrency(Math.round(c.totalPurchases ?? 0))}
+            name={c.clientName}
+            value={formatCurrency(c.totalValue)}
             badgeStyle={idx === 0 ? styles.goldBadge : idx === 1 ? styles.silverBadge : styles.bronzeBadge}
           />
         ))}
@@ -430,9 +366,9 @@ export default function HomeScreen() {
           <ProductRankingRow
             key={idx}
             index={idx + 1}
-            name={p.name}
-            total={p.total}
-            subtitle={p.subtitle}
+            name={p.productName}
+            total={formatCurrency(p.totalValue)}
+            subtitle={`${p.quantity} ${p.quantity === 1 ? 'unidad' : 'unidades'}`}
           />
         ))}
       </View>
@@ -573,3 +509,4 @@ function ActivityRow({
 }
 
 import { styles } from '@/theme/styles/app_tabs_index';
+

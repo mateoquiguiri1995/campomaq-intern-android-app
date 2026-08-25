@@ -1,51 +1,36 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { styles } from '@/theme/styles/app_quotes_select-client';
+import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+
 import { Button } from '@/components/common/Button';
 import { ScreenContainer } from '@/components/common/ScreenContainer';
 import { TextField } from '@/components/common/TextField';
-import { ClientCard } from '@/features/clients/components/ClientCard';
+import { ClientList } from '@/features/clients/components/ClientList';
 import { useClients } from '@/features/clients/hooks/useClients';
 import type { Client } from '@/features/clients/types';
 import { useQuoteBuilder } from '@/features/quotes/QuoteBuilderProvider';
 import { colors } from '@/theme/colors';
-import { radius, spacing } from '@/theme/spacing';
-import { typography } from '@/theme/typography';
+import { styles } from '@/theme/styles/app_quotes_select-client';
 
-/** Paso 1 del flujo de cotización: elegir un cliente registrado o registrar uno nuevo (solo para este documento). */
+/** Paso 1 del flujo de cotizacion: elegir un cliente registrado o registrar uno nuevo solo para este documento. */
 export default function SelectClientScreen() {
   const router = useRouter();
   const { setClient } = useQuoteBuilder();
   const { clientId, clientData } = useLocalSearchParams<{ clientId?: string; clientData?: string }>();
 
   useEffect(() => {
-    if (clientId && clientData) {
-      try {
-        const parsedClient = JSON.parse(clientData) as Client;
-        setClient({ kind: 'registered', client: parsedClient });
-        router.replace('/quotes/select-products');
-      } catch (e) {
-        console.error('Error automatic-selecting client', e);
-      }
+    if (!clientId || !clientData) return;
+    try {
+      const parsedClient = JSON.parse(clientData) as Client;
+      setClient({ kind: 'registered', client: parsedClient });
+      router.replace('/quotes/select-products');
+    } catch (error) {
+      console.error('Error automatic-selecting client', error);
     }
-  }, [clientId, clientData]);
+  }, [clientId, clientData, router, setClient]);
 
-  const {
-    clients: filteredClients,
-    loading: isLoading,
-    searchLoading,
-    loadingMore,
-    error,
-    hasMore,
-    hasActiveFilters,
-    search,
-    setSearch,
-    loadMore,
-    refresh,
-  } = useClients();
-
+  const { clients, loading, searchLoading, loadingMore, error, hasMore, hasActiveFilters, search, setSearch, loadMore, refresh, refreshing } = useClients();
   const [showManualForm, setShowManualForm] = useState(false);
   const [manualName, setManualName] = useState('');
   const [manualContact, setManualContact] = useState('');
@@ -62,99 +47,44 @@ export default function SelectClientScreen() {
   }
 
   return (
-    <ScreenContainer>
+    <ScreenContainer scroll={false}>
       <Stack.Screen options={{ title: 'Elegir cliente', headerBackTitle: 'Reportes' }} />
-
       <View style={styles.searchRow}>
-        {searchLoading ? (
-          <ActivityIndicator size="small" color={colors.gray} style={styles.searchIcon} />
-        ) : (
-          <Ionicons name="search" size={18} color={colors.gray} style={styles.searchIcon} />
-        )}
-
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Buscar cliente..."
-          placeholderTextColor={colors.gray}
-          value={search}
-          onChangeText={setSearch}
-          returnKeyType="search"
-        />
+        {searchLoading ? <ActivityIndicator size="small" color={colors.gray} style={styles.searchIcon} /> : <Ionicons name="search" size={18} color={colors.gray} style={styles.searchIcon} />}
+        <TextInput style={styles.searchInput} placeholder="Buscar cliente" placeholderTextColor={colors.gray} value={search} onChangeText={setSearch} returnKeyType="search" />
       </View>
 
-      {isLoading && (
-        <View style={styles.center}>
-          <Text style={styles.helperText}>Cargando clientes...</Text>
-        </View>
-      )}
-
-      {error && !isLoading && (
-        <View style={styles.center}>
-          <Text style={styles.errorText}>{error}</Text>
-          <Button label="Reintentar" variant="ghost" onPress={refresh} />
-        </View>
-      )}
-
-      <Pressable style={styles.manualToggle} onPress={() => setShowManualForm((prev) => !prev)}>
-        <Text style={styles.manualToggleText}>
-          {showManualForm ? '− Ocultar' : '+ Cliente nuevo (no registrado)'}
-        </Text>
+      <Pressable style={styles.manualToggle} onPress={() => setShowManualForm((current) => !current)}>
+        <Text style={styles.manualToggleText}>{showManualForm ? '− Ocultar' : '+ Cliente nuevo (no registrado)'}</Text>
       </Pressable>
 
       {showManualForm && (
         <View style={styles.manualForm}>
-          <Text style={styles.manualHint}>
-            Este cliente solo se guarda en esta cotización. No se sube a la base de datos.
-          </Text>
+          <Text style={styles.manualHint}>Este cliente solo se guarda en esta cotizacion. No se sube a la base de datos.</Text>
           <TextField label="Nombre" value={manualName} onChangeText={setManualName} placeholder="Nombre del cliente" />
-          <TextField
-            label="Teléfono o correo"
-            value={manualContact}
-            onChangeText={setManualContact}
-            placeholder="099... o correo@ejemplo.com"
-          />
-          <Button
-            label="Continuar con este cliente"
-            onPress={handleConfirmManual}
-            disabled={!manualName.trim() || !manualContact.trim()}
-          />
+          <TextField label="Telefono o correo" value={manualContact} onChangeText={setManualContact} placeholder="099... o correo@ejemplo.com" />
+          <Button label="Continuar con este cliente" onPress={handleConfirmManual} disabled={!manualName.trim() || !manualContact.trim()} />
         </View>
       )}
 
-      {!isLoading && !error && (
-        <View style={styles.list}>
-          {filteredClients.length === 0 ? (
-            searchLoading ? (
-              <View style={styles.center}>
-                <ActivityIndicator color={colors.primaryDark} />
-                <Text style={styles.helperText}>Buscando clientes...</Text>
-              </View>
-            ) : (
-              <Text style={styles.emptyText}>
-                {hasActiveFilters
-                  ? 'No encontramos clientes con esa búsqueda.'
-                  : 'No existen clientes disponibles.'}
-              </Text>
-            )
-          ) : (
-            filteredClients.map((client) => (
-              <Pressable key={client.id} onPress={() => handleSelectRegistered(client)}>
-                <ClientCard client={client} />
-              </Pressable>
-            ))
-          )}
-
-          {!hasActiveFilters && hasMore && (
-            <Button
-              label={loadingMore ? 'Cargando...' : 'Cargar más clientes'}
-              variant="ghost"
-              onPress={loadMore}
-              disabled={loadingMore}
-            />
-          )}
-        </View>
+      {loading ? (
+        <View style={styles.center}><Text style={styles.helperText}>Cargando clientes...</Text></View>
+      ) : error ? (
+        <View style={styles.center}><Text style={styles.errorText}>{error}</Text><Button label="Reintentar" variant="ghost" onPress={refresh} /></View>
+      ) : (
+        <ClientList
+          clients={clients}
+          hasMore={hasMore}
+          loadingMore={loadingMore}
+          onLoadMore={loadMore}
+          hasActiveFilters={hasActiveFilters}
+          searching={searchLoading}
+          onClearFilters={() => setSearch('')}
+          onPressClient={handleSelectRegistered}
+          refreshing={refreshing}
+          onRefresh={refresh}
+        />
       )}
     </ScreenContainer>
   );
 }
-

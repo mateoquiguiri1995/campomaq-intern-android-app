@@ -1,20 +1,21 @@
-import { useEffect, useState, useRef } from 'react';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import * as SplashScreen from 'expo-splash-screen';
 import {
-  useFonts,
   Barlow_400Regular,
   Barlow_500Medium,
   Barlow_600SemiBold,
   Barlow_700Bold,
+  useFonts,
 } from '@expo-google-fonts/barlow';
+import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useRef, useState } from 'react';
 
+import { LoadingScreen } from '@/components/common/LoadingScreen';
+import { SalesLoadingScreen } from '@/components/common/SalesLoadingScreen';
 import { AuthProvider, useAuth } from '@/features/auth/AuthProvider';
 import { AppBootstrapProvider, useAppBootstrap } from '@/features/bootstrap/AppBootstrapProvider';
 import { QuoteBuilderProvider } from '@/features/quotes/QuoteBuilderProvider';
-import { LoadingScreen } from '@/components/common/LoadingScreen';
-import { SalesLoadingScreen } from '@/components/common/SalesLoadingScreen';
+import { SellerProvider } from '@/features/sellers/SellerProvider';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -49,12 +50,24 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <AppBootstrapProvider>
-        <QuoteBuilderProvider>
-          <StatusBar style="dark" />
-          <RootNavigator key={SESSION_MOUNT_KEY} />
-        </QuoteBuilderProvider>
+        <SellerProvider>
+          <SessionQuoteBuilder />
+        </SellerProvider>
       </AppBootstrapProvider>
     </AuthProvider>
+  );
+}
+
+/** El estado de una cotización en curso nunca se comparte entre cuentas. */
+function SessionQuoteBuilder() {
+  const { session } = useAuth();
+  const userId = session?.user.id ?? null;
+
+  return (
+    <QuoteBuilderProvider userId={userId}>
+      <StatusBar style="dark" />
+      <RootNavigator key={userId ?? 'anonymous'} />
+    </QuoteBuilderProvider>
   );
 }
 
@@ -122,18 +135,21 @@ function RootNavigator() {
     );
   }
 
+  if (!session) {
+    return (
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="login" />
+      </Stack>
+    );
+  }
+
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Protected guard={!!session}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="product/[id]" />
-        <Stack.Screen name="client/[id]" />
-        <Stack.Screen name="client/invoice/[invoiceNumber]" />
-        <Stack.Screen name="quotes" />
-      </Stack.Protected>
-      <Stack.Protected guard={!session}>
-        <Stack.Screen name="login" />
-      </Stack.Protected>
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="product/[id]" />
+      <Stack.Screen name="client/[id]" />
+      <Stack.Screen name="client/invoice/[invoiceNumber]" />
+      <Stack.Screen name="quotes" />
     </Stack>
   );
 }

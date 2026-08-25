@@ -39,6 +39,7 @@ export interface ClientInvoice {
   paymentMethod: string;
   status?: InvoiceStatus;
   total: number;
+  isSalesNote?: boolean;
 }
 
 /** Información ampliada que se mostrará en la ficha del cliente. */

@@ -1,12 +1,16 @@
 import { ApiError, apiGet } from '@/api/client';
 import { supabase } from '@/lib/supabase';
 import * as secureStore from '@/utils/secureStore';
-import { createContext, useContext, useEffect, useState, type PropsWithChildren } from 'react';
+import { Directory, File, Paths } from 'expo-file-system';
+import { createContext, useContext, useEffect, useRef, useState, type PropsWithChildren } from 'react';
 import * as authService from './services/authService';
 import type { AuthSession, LoginCredentials } from './types';
 
-const AVATAR_OVERRIDE_KEY = 'campomaq-avatar-override';
+const AVATAR_OVERRIDE_KEY_PREFIX = 'campomaq_avatar_v1';
+const USER_PROFILE_CACHE_KEY_PREFIX = 'campomaq_profile_v1';
+const LEGACY_AVATAR_OVERRIDE_KEY = 'campomaq-avatar-override';
 const MOCK_SESSION_KEY = 'campomaq-mock-session';
+
 
 interface AuthContextValue {
   session: AuthSession | null;
@@ -27,7 +31,6 @@ interface AuthContextValue {
 }
 
 interface MeResponse {
-  id: string;
   name: string;
   email: string;
   role: 'vendedor';
@@ -36,110 +39,114 @@ interface MeResponse {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-// =============================================================================
-// MODO DESARROLLO: backend aún no expone GET /auth/me, así que el AuthProvider
-// real (comentado más abajo, íntegro) no puede completar el login. Mientras
-// tanto se usa el AuthProvider MOCK de aquí abajo para poder seguir
-// desarrollando el resto de la app sin backend.
-//
-// Cuando el backend tenga listo GET /auth/me:
-//   1) Borra la función AuthProvider "MOCK" de aquí abajo.
-//   2) Descomenta la función AuthProvider "REAL (Supabase + /auth/me)" que
-//      está comentada al final de este archivo.
-//   3) Revierte src/features/auth/services/authService.ts al bloque REAL
-//      (mismo tipo de marcador ahí).
-// =============================================================================
+function avatarOverrideKey(userId: string): string {
+  const safeUserId = userId.replace(/[^a-zA-Z0-9._-]/g, '_');
+  return `${AVATAR_OVERRIDE_KEY_PREFIX}_${safeUserId}`;
+}
 
-// ----------------------- AuthProvider (MOCK, activo) -------------------------
-// Login sin backend: cualquier correo/password entra y se guarda una sesión
-// falsa en SecureStore para no perderla al recargar la app.
-// export function AuthProvider({ children }: PropsWithChildren) {
-//   const [session, setSession] = useState<AuthSession | null>(null);
-//   const [isLoading, setIsLoading] = useState(true);
+function userProfileCacheKey(userId: string): string {
+  const safeUserId = userId.replace(/[^a-zA-Z0-9._-]/g, '_');
+  return `${USER_PROFILE_CACHE_KEY_PREFIX}_${safeUserId}`;
+}
 
-//   useEffect(() => {
-//     let isMounted = true;
+function cleanUri(uri: string): string {
+  return uri.split('?')[0];
+}
 
-//     SecureStore.getItemAsync(MOCK_SESSION_KEY).then((stored) => {
-//       if (!isMounted) return;
-//       if (stored) setSession(JSON.parse(stored) as AuthSession);
-//       setIsLoading(false);
-//     });
+async function saveAvatarFile(userId: string, pickerUri: string): Promise<string> {
+  try {
+    if (!Paths.document) {
+      return pickerUri;
+    }
+    const cleanPickerUri = cleanUri(pickerUri);
+    const extensionMatch = cleanPickerUri.match(/\.([a-zA-Z0-9]+)$/);
+    const ext = extensionMatch ? extensionMatch[1] : 'jpg';
+    const fileName = `avatar_${encodeURIComponent(userId)}.${ext}`;
+    const targetFile = new File(Paths.document, fileName);
 
-//     return () => {
-//       isMounted = false;
-//     };
-//   }, []);
+    if (targetFile.exists) {
+      targetFile.delete();
+    }
 
-//   async function loginWithPassword(credentials: LoginCredentials) {
-//     await authService.loginWithPassword(credentials);
+    if (pickerUri.startsWith('http://') || pickerUri.startsWith('https://')) {
+      await File.downloadFileAsync(pickerUri, targetFile, { idempotent: true });
+    } else {
+      try {
+        const sourceFile = new File(cleanPickerUri);
+        sourceFile.copy(targetFile);
+      } catch (copyErr) {
+        console.warn('[Auth] sourceFile.copy falló, intentando respaldo con bytes:', copyErr);
+        const sourceFile = new File(cleanPickerUri);
+        const base64Data = await sourceFile.base64();
+        targetFile.write(base64Data, { encoding: 'base64' });
+      }
+    }
 
-//     const email = credentials.email.trim() || 'vendedor@campomaq.ec';
-//     const localPart = email.split('@')[0] ?? '';
-//     const words = localPart.split(/[._+-]+/).filter(Boolean);
-//     const name =
-//       words.length > 0
-//         ? words.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
-//         : 'Vendedor Demo';
+    return `${targetFile.uri}?t=${Date.now()}`;
+  } catch (error) {
+    console.warn('[Auth] Error guardando avatar permanentemente:', error);
+    return pickerUri;
+  }
+}
 
-//     const avatarOverride = await SecureStore.getItemAsync(AVATAR_OVERRIDE_KEY);
+async function resolveValidAvatarUri(userId: string, storedUri: string | null): Promise<string | null> {
+  try {
+    if (storedUri) {
+      if (!storedUri.startsWith('file://')) {
+        return storedUri;
+      }
+      const rawPath = cleanUri(storedUri);
+      const file = new File(rawPath);
+      if (file.exists) {
+        return `${file.uri}?t=${Date.now()}`;
+      }
+    }
 
-//     const mockSession: AuthSession = {
-//       user: {
-//         id: 'mock-user-1',
-//         name,
-//         email,
-//         role: 'vendedor',
-//         avatar:
-//           avatarOverride ??
-//           `https://ui-avatars.com/api/?name=${encodeURIComponent(name).replace(/%20/g, '+')}&background=F5B800&color=1A1A1A&size=128&bold=true`,
-//       },
-//       token: 'mock-token',
-//     };
+    if (Paths.document) {
+      const docDir = new Directory(Paths.document);
+      const items = docDir.list();
+      const targetPrefix = `avatar_${encodeURIComponent(userId)}`;
 
-//     setSession(mockSession);
-//     await SecureStore.setItemAsync(MOCK_SESSION_KEY, JSON.stringify(mockSession));
-//   }
+      const matchedFile = items.find(
+        (item): item is File => item instanceof File && item.name.startsWith(targetPrefix)
+      );
 
-//   async function logout() {
-//     await authService.logout();
-//     await SecureStore.deleteItemAsync(MOCK_SESSION_KEY);
-//     setSession(null);
-//   }
+      if (matchedFile && matchedFile.exists) {
+        await secureStore.setItemAsync(avatarOverrideKey(userId), matchedFile.uri);
+        return `${matchedFile.uri}?t=${Date.now()}`;
+      }
+    }
 
-//   async function updateAvatar(uri: string) {
-//     if (!session) return;
-//     await SecureStore.setItemAsync(AVATAR_OVERRIDE_KEY, uri);
-//     const next = { ...session, user: { ...session.user, avatar: uri } };
-//     setSession(next);
-//     await SecureStore.setItemAsync(MOCK_SESSION_KEY, JSON.stringify(next));
-//   }
-
-//   return (
-//     <AuthContext.Provider value={{ session, isLoading, loginWithPassword, logout, updateAvatar }}>
-//       {children}
-//     </AuthContext.Provider>
-//   );
-// }
+    if (storedUri) {
+      console.warn('[Auth] La ruta del avatar guardado no existe en disco:', storedUri);
+    }
+    return null;
+  } catch (error) {
+    console.warn('[Auth] Error al verificar el archivo del avatar:', error);
+    return storedUri;
+  }
+}
 
 // -------------------- AuthProvider (REAL - Supabase + /auth/me) --------------
-// Descomentar esta función completa (y borrar la función AuthProvider MOCK de
-// arriba) cuando el backend tenga listo GET /auth/me.
-//
 export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [hasSession, setHasSession] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
+  const authVersion = useRef(0);
 
-  async function loadProfile(accessToken: string) {
+  async function loadProfile(accessToken: string, userId: string, version: number) {
     try {
       const me = await apiGet<MeResponse>('/auth/me');
-      const avatarOverride = await secureStore.getItemAsync(AVATAR_OVERRIDE_KEY);
+      const rawAvatarOverride = await secureStore.getItemAsync(avatarOverrideKey(userId));
+      const avatarOverride = await resolveValidAvatarUri(userId, rawAvatarOverride);
+      await secureStore.setItemAsync(userProfileCacheKey(userId), JSON.stringify(me));
+
+      if (authVersion.current !== version) return;
 
       setSession({
         user: {
-          id: me.id,
+          id: userId,
           name: me.name,
           email: me.email,
           role: me.role,
@@ -149,26 +156,27 @@ export function AuthProvider({ children }: PropsWithChildren) {
       });
       setProfileError(null);
     } catch (error) {
+      if (authVersion.current !== version) return;
       console.warn('[Auth] /auth/me falló:', error);
-      // Token sin cuenta de vendedor activa (403) o inválido (401): no hay
-      // forma de continuar, se cierra la sesión. Otros errores (red, 500)
-      // ya fueron manejados/reintentados por el cliente HTTP.
       if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
         setProfileError(null);
         await supabase.auth.signOut();
         return;
       }
-      // Una caÃ­da temporal de /auth/me no invalida la sesiÃ³n de Supabase.
-      // Se conserva la sesiÃ³n preliminar para que el usuario pueda reintentar.
-      setProfileError(error instanceof Error ? error.message : 'No fue posible cargar tu perfil.');
+      const cachedProfile = await secureStore.getItemAsync(userProfileCacheKey(userId));
+      if (!cachedProfile) {
+        setProfileError(error instanceof Error ? error.message : 'No fue posible cargar tu perfil.');
+      }
     }
   }
 
   useEffect(() => {
     let isMounted = true;
+    secureStore.deleteItemAsync(LEGACY_AVATAR_OVERRIDE_KEY);
 
     const { data } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
       if (!isMounted) return;
+      const version = ++authVersion.current;
 
       if (!newSession) {
         setHasSession(false);
@@ -178,24 +186,72 @@ export function AuthProvider({ children }: PropsWithChildren) {
         return;
       }
 
-      // Credenciales ya válidas para Supabase: establecemos una sesión preliminar
-      // rápida con los datos de Supabase Auth (como el email) para que la pantalla
-      // de carga pueda mostrar el nombre del vendedor desde el 0%.
+      const userId = newSession.user.id;
+
+      // Recuperación instantánea de perfil y avatar desde disco local
+      const [cachedProfileJson, rawAvatarOverride] = await Promise.all([
+        secureStore.getItemAsync(userProfileCacheKey(userId)),
+        secureStore.getItemAsync(avatarOverrideKey(userId)),
+      ]);
+      const avatarOverride = await resolveValidAvatarUri(userId, rawAvatarOverride);
+
+      let cachedName = '';
+      let cachedRole: 'vendedor' = 'vendedor';
+      let cachedAvatarUrl: string | undefined = undefined;
+
+      if (cachedProfileJson) {
+        try {
+          const parsed = JSON.parse(cachedProfileJson) as MeResponse;
+          cachedName = parsed.name;
+          cachedRole = parsed.role;
+          cachedAvatarUrl = parsed.avatarUrl;
+        } catch {}
+      }
+
+      if (!cachedName) {
+        const metadataName =
+          (newSession.user.user_metadata?.name as string | undefined) ||
+          (newSession.user.user_metadata?.full_name as string | undefined);
+        if (metadataName) {
+          cachedName = metadataName;
+        } else if (newSession.user.email) {
+          const prefix = newSession.user.email.split('@')[0];
+          cachedName = prefix.charAt(0).toUpperCase() + prefix.slice(1);
+        } else {
+          cachedName = 'Vendedor';
+        }
+      }
+
+      const initialUser = {
+        id: userId,
+        name: cachedName,
+        email: newSession.user.email ?? '',
+        role: cachedRole,
+        avatar: avatarOverride ?? cachedAvatarUrl,
+      };
+
+      if (!cachedProfileJson) {
+        await secureStore.setItemAsync(
+          userProfileCacheKey(userId),
+          JSON.stringify({
+            name: initialUser.name,
+            email: initialUser.email,
+            role: initialUser.role,
+            avatarUrl: initialUser.avatar,
+          })
+        );
+      }
+
       setSession({
-        user: {
-          id: newSession.user.id,
-          name: '',
-          email: newSession.user.email ?? '',
-          role: 'vendedor',
-        },
+        user: initialUser,
         token: newSession.access_token,
       });
 
       setHasSession(true);
       setProfileError(null);
       setIsLoading(true);
-      await loadProfile(newSession.access_token);
-      if (isMounted) setIsLoading(false);
+      await loadProfile(newSession.access_token, userId, version);
+      if (isMounted && authVersion.current === version) setIsLoading(false);
     });
 
     return () => {
@@ -214,8 +270,30 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   async function updateAvatar(uri: string) {
     if (!session) return;
-    await secureStore.setItemAsync(AVATAR_OVERRIDE_KEY, uri);
-    setSession({ ...session, user: { ...session.user, avatar: uri } });
+    const userId = session.user.id;
+    try {
+      const stableUri = await saveAvatarFile(userId, uri);
+      await secureStore.setItemAsync(avatarOverrideKey(userId), stableUri);
+
+      const cachedProfileJson = await secureStore.getItemAsync(userProfileCacheKey(userId));
+      let profileObj: Partial<MeResponse> = {};
+      if (cachedProfileJson) {
+        try {
+          profileObj = JSON.parse(cachedProfileJson);
+        } catch {}
+      }
+      profileObj.avatarUrl = stableUri;
+      if (!profileObj.name) profileObj.name = session.user.name;
+      if (!profileObj.email) profileObj.email = session.user.email;
+      if (!profileObj.role) profileObj.role = session.user.role;
+
+      await secureStore.setItemAsync(userProfileCacheKey(userId), JSON.stringify(profileObj));
+
+      setSession((prev) => (prev ? { ...prev, user: { ...prev.user, avatar: stableUri } } : null));
+    } catch (error) {
+      console.warn('[Auth] Error actualizando avatar:', error);
+      setSession((prev) => (prev ? { ...prev, user: { ...prev.user, avatar: uri } } : null));
+    }
   }
 
   async function retryProfile() {
@@ -223,8 +301,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     setProfileError(null);
     setIsLoading(true);
-    await loadProfile(session.token);
-    setIsLoading(false);
+    const version = ++authVersion.current;
+    await loadProfile(session.token, session.user.id, version);
+    if (authVersion.current === version) setIsLoading(false);
   }
 
   return (

@@ -1,22 +1,25 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { Button } from '@/components/common/Button';
 import { ScreenContainer } from '@/components/common/ScreenContainer';
 import { ClientList } from '@/features/clients/components/ClientList';
 import { useClients } from '@/features/clients/hooks/useClients';
 import type { Client } from '@/features/clients/types';
-import { colors } from '@/theme/colors';
-import { radius, spacing } from '@/theme/spacing';
 import { useQuoteBuilder } from '@/features/quotes/QuoteBuilderProvider';
+import { useSellerDashboard } from '@/features/sellers/SellerProvider';
+import { colors } from '@/theme/colors';
+import { formatCurrency } from '@/utils/currency';
 
 /** Pestaña Clientes. */
 export default function ClientsScreen() {
   const router = useRouter();
   const [clientFilter, setClientFilter] = useState<ClientFilter>('Todos');
   const { resetBuilder } = useQuoteBuilder();
+  const { seller } = useSellerDashboard();
+  const featuredClient = seller?.topClients[0];
   const {
     clients,
     loading,
@@ -29,6 +32,7 @@ export default function ClientsScreen() {
     setSearch,
     loadMore,
     refresh,
+    refreshing,
   } = useClients();
 
 
@@ -68,6 +72,17 @@ export default function ClientsScreen() {
         <View style={styles.headerRow}>
           <Text style={styles.headerTitle}>Clientes</Text>
         </View>
+
+        {featuredClient && (
+          <View style={styles.featuredClient}>
+            <Ionicons name="trophy-outline" size={18} color={colors.primaryDark} />
+            <View style={styles.featuredClientText}>
+              <Text style={styles.featuredClientLabel}>CLIENTE DESTACADO</Text>
+              <Text style={styles.featuredClientName} numberOfLines={1}>{featuredClient.clientName}</Text>
+            </View>
+            <Text style={styles.featuredClientValue}>{formatCurrency(featuredClient.totalValue)}</Text>
+          </View>
+        )}
 
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.primaryDark} />
@@ -109,7 +124,7 @@ export default function ClientsScreen() {
 
           <TextInput
             style={styles.searchInput}
-            placeholder="Buscar cliente, RUC..."
+            placeholder="Buscar cliente por nombre"
             placeholderTextColor={colors.gray}
             value={search}
             onChangeText={setSearch}
@@ -178,6 +193,8 @@ export default function ClientsScreen() {
             }}
             searching={searchLoading}
             onPressClient={openClientDetail}
+            refreshing={refreshing}
+            onRefresh={refresh}
           />
         </View>
       )}
@@ -191,7 +208,8 @@ export default function ClientsScreen() {
 
 type ClientFilter = 'Todos' | 'Activo' | 'Muy recurrente' | 'Recurrente' | 'Ocasional' | 'Una vez';
 
-const CLIENT_FILTERS: ClientFilter[] = ['Todos', 'Activo', 'Muy recurrente', 'Recurrente', 'Ocasional', 'Una vez'];
+const CLIENT_FILTERS: ClientFilter[] = ['Todos', 'Activo', 'Muy recurrente', 'Recurrente', 'Una vez'];
 
 import { styles } from '@/theme/styles/app_tabs_clients';
 import { inlineLayoutStyles } from '@/theme/styles/inlineLayout';
+

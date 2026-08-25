@@ -1,17 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, Text, View } from 'react-native';
 
 import { Badge } from '@/components/common/Badge';
-import { formatCurrency } from '@/utils/currency';
+import { useQuoteBuilder } from '@/features/quotes/QuoteBuilderProvider';
 import { colors } from '@/theme/colors';
-import { radius, spacing } from '@/theme/spacing';
-import { typography } from '@/theme/typography';
+import { styles } from '@/theme/styles/src_features_clients_components_ClientDetail';
+import { formatCurrency } from '@/utils/currency';
 
 import type { ClientDetail as ClientDetailType, ClientInvoice } from '../types';
 import { ClientAvatar } from './ClientAvatar';
-import { useQuoteBuilder } from '@/features/quotes/QuoteBuilderProvider';
 
 type DetailTab = 'history' | 'data' | 'notes';
 
@@ -58,22 +57,33 @@ function ActionButton({
 
 function InvoiceCard({ invoice }: { invoice: ClientInvoice }) {
   const router = useRouter();
+  const isSalesNote = invoice.isSalesNote || invoice.total === 0;
+
   return (
     <Pressable style={styles.invoiceCard} onPress={() => router.push(`/client/invoice/${invoice.invoiceNumber}`)}>
       <View style={styles.invoiceTopRow}>
         <Text style={styles.invoiceHeader}>
-          {formatDate(invoice.issuedAt).toUpperCase()} · {invoice.code}
+          {formatDate(invoice.issuedAt).toUpperCase()} · {isSalesNote ? `Nota de Venta #${invoice.invoiceNumber}` : invoice.code}
         </Text>
-        {invoice.status && (
-          <Badge
-            label={invoice.status === 'paid' ? 'Pagada' : 'Pendiente'}
-            backgroundColor={invoice.status === 'paid' ? '#E8F5E9' : '#FFF3E0'}
-            textColor={invoice.status === 'paid' ? '#2E7D32' : '#B25E00'}
-          />
-        )}
+        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+          {isSalesNote && (
+            <Badge
+              label="Nota de Venta"
+              backgroundColor="#E3F2FD"
+              textColor="#1565C0"
+            />
+          )}
+          {invoice.status && (
+            <Badge
+              label={invoice.status === 'paid' ? 'Pagada' : 'Pendiente'}
+              backgroundColor={invoice.status === 'paid' ? '#E8F5E9' : '#FFF3E0'}
+              textColor={invoice.status === 'paid' ? '#2E7D32' : '#B25E00'}
+            />
+          )}
+        </View>
       </View>
 
-      <Text style={styles.invoiceName}>{invoice.name}</Text>
+      <Text style={styles.invoiceName}>{isSalesNote ? 'Nota de venta' : invoice.name}</Text>
       <Text style={styles.invoiceMeta}>
         {invoice.itemCount} {invoice.itemCount === 1 ? 'Item' : 'items'} - {invoice.paymentMethod}
       </Text>
@@ -241,5 +251,3 @@ function getRecencyLabel(value?: string): string {
   if (value === 'At risk') return 'En riesgo';
   return 'Sin clasificar';
 }
-
-import { styles } from '@/theme/styles/src_features_clients_components_ClientDetail';

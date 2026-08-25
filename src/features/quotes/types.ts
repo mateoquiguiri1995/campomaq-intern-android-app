@@ -38,6 +38,8 @@ export interface Quote {
   client: QuoteClient;
   items: QuoteItem[];
   status: QuoteStatus;
+  observations?: string;
+  termsAndConditions?: string;
   createdAt: string;
   updatedAt: string;
 }

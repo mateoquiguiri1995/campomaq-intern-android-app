@@ -1,5 +1,5 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
-import * as secureStore from '@/utils/secureStore';
 import { AppState } from 'react-native';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -9,15 +9,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Faltan variables EXPO_PUBLIC_SUPABASE_URL o EXPO_PUBLIC_SUPABASE_ANON_KEY');
 }
 
-const SecureStoreAdapter = {
-  getItem: (key: string) => secureStore.getItemAsync(key),
-  setItem: (key: string, value: string) => secureStore.setItemAsync(key, value),
-  removeItem: (key: string) => secureStore.deleteItemAsync(key),
-};
-
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: SecureStoreAdapter,
+    storage: AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,

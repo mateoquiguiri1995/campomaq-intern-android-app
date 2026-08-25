@@ -1,5 +1,9 @@
 import type { Client } from '../types';
-import { getClientsFromApi, type ApiClient } from '../api/clientApi';
+import { getClientsFromApi } from '../api/clientApi';
+import { mapApiClient } from './clientMapper';
+
+export type { ApiClient } from '../api/clientApi';
+export { mapApiClient };
 
 export interface GetClientsParams {
   q?: string;
@@ -11,35 +15,6 @@ export interface ClientsResult {
   clients: Client[];
   page: number;
   total?: number;
-}
-
-export function mapApiClient(api: ApiClient): Client {
-  return {
-    id: api.id,
-    name: api.name,
-    ruc: api.id,
-    email: api.email || undefined,
-    phone: api.phonePrimary || api.phoneSecondary || undefined,
-    phoneSecondary: api.phoneSecondary || undefined,
-    location: api.address || undefined,
-    totalPurchases: api.totalSalesLast6Months ?? 0,
-    lastPurchaseDate: api.lastPurchaseDate,
-    daysSinceLastPurchase: api.daysSinceLastPurchase,
-    frequencyClassification: api.frequencyClassification,
-    purchaseMonthsLast6Months: api.purchaseMonthsLast6Months,
-    recencyStatus: api.recencyStatus,
-    salesCountLast6Months: api.salesCountLast6Months ?? 0,
-    recentInvoices: api.recentInvoices?.map((invoice) => ({
-      id: `${api.id}-${invoice.invoiceNumber}`,
-      invoiceNumber: invoice.invoiceNumber,
-      issuedAt: invoice.invoiceDate,
-      code: `Factura #${invoice.invoiceNumber}`,
-      name: 'Factura de venta',
-      itemCount: invoice.itemCount,
-      paymentMethod: invoice.paymentType,
-      total: invoice.total,
-    })) ?? [],
-  };
 }
 
 export async function getClients(params: GetClientsParams = {}): Promise<ClientsResult> {
@@ -54,4 +29,25 @@ export async function getClients(params: GetClientsParams = {}): Promise<Clients
     page: params.page ?? 1,
     total: result.total ?? result.items.length,
   };
+}
+
+/**
+ * Cartera completa de clientes, para filtrar por búsqueda/estado en el
+ * cliente. Sin `page`, el backend devuelve todos los clientes asignados.
+ */
+export async function getAllClients(): Promise<Client[]> {
+  const result = await getClientsFromApi();
+  return result.items.map(mapApiClient);
+}
+
+/**
+ * Busca clientes por nombre, RUC o datos de contacto.
+ */
+export async function searchClients(query: string): Promise<Client[]> {
+  if (!query.trim()) {
+    return getAllClients();
+  }
+
+  const result = await getClientsFromApi({ q: query });
+  return result.items.map(mapApiClient);
 }

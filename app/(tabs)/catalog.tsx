@@ -1,44 +1,49 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
 import React, { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Dimensions,
-  Image as RNImage,
   Modal,
   Pressable,
+  Image as RNImage,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 
 import { ScreenContainer } from '@/components/common/ScreenContainer';
+import { useAuth } from '@/features/auth/AuthProvider';
 import { BrandSelect } from '@/features/catalog/components/BrandSelect';
 import { CategoryChip } from '@/features/catalog/components/CategoryChip';
 import { MonthlyGoalCard } from '@/features/catalog/components/MonthlyGoalCard';
 import { ProductList } from '@/features/catalog/components/ProductList';
 import { useCatalog } from '@/features/catalog/hooks/useCatalog';
-import { useMonthlyGoal } from '@/features/catalog/hooks/useMonthlyGoal';
 import type { Product } from '@/features/catalog/types';
-import { useAuth } from '@/features/auth/AuthProvider';
-import { colors } from '@/theme/colors';
-import { radius, spacing } from '@/theme/spacing';
-import { typography } from '@/theme/typography';
 import { useQuoteBuilder } from '@/features/quotes/QuoteBuilderProvider';
+import { useSellerDashboard } from '@/features/sellers/SellerProvider';
+import { colors } from '@/theme/colors';
+import { spacing } from '@/theme/spacing';
 
 type SortType = 'margin' | 'price_asc' | 'price_desc' | 'name';
 
 export default function CatalogScreen() {
   const router = useRouter();
-  const { goal } = useMonthlyGoal();
+  const { seller } = useSellerDashboard();
   const { session, logout, updateAvatar } = useAuth();
   const user = session?.user;
   const { resetBuilder } = useQuoteBuilder();
+  const sellerGoal = seller
+    ? {
+        achievedMargin: seller.currentMonthSales,
+        targetMargin: seller.monthlyGoal,
+        percentage: seller.monthlyGoal > 0 ? (seller.currentMonthSales / seller.monthlyGoal) * 100 : 0,
+      }
+    : null;
+  const leadingCategory = seller?.salesByCategory[0];
 
   function handleNewQuote() {
     resetBuilder();
@@ -78,6 +83,8 @@ export default function CatalogScreen() {
 
     hasActiveFilters,
     resetFilters,
+    refresh,
+    refreshing,
   } = useCatalog();
 
   // Ordenar productos localmente
@@ -265,7 +272,7 @@ export default function CatalogScreen() {
 
             <TextInput
               style={styles.searchInput}
-              placeholder="Buscar producto, código..."
+              placeholder="Buscar producto por nombre"
               placeholderTextColor={colors.gray}
               value={search}
               onChangeText={setSearch}
@@ -310,7 +317,16 @@ export default function CatalogScreen() {
         </View>
 
         {/* Barra de progreso de Meta del Mes */}
-        <MonthlyGoalCard goal={goal} />
+        <MonthlyGoalCard goal={sellerGoal} />
+
+        {leadingCategory && (
+          <View style={styles.commercialReference}>
+            <Ionicons name="ribbon-outline" size={15} color={colors.primaryDark} />
+            <Text style={styles.commercialReferenceText} numberOfLines={1}>
+              Categoría líder: {leadingCategory.categoryName}
+            </Text>
+          </View>
+        )}
 
         {/* Fila de Contador y Selector de Ordenamiento */}
         <View style={styles.sortRow}>
@@ -333,6 +349,8 @@ export default function CatalogScreen() {
         onClearFilters={resetFilters}
         onPressProduct={handleOpenProduct}
         searching={searchLoading}
+        refreshing={refreshing}
+        onRefresh={refresh}
       />
 
       {/* Modal del Menu de Avatar (Cerrar Sesión) */}
@@ -451,3 +469,4 @@ export default function CatalogScreen() {
 }
 
 import { styles } from '@/theme/styles/app_tabs_catalog';
+

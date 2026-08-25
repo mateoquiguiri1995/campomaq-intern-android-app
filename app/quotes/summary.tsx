@@ -6,6 +6,7 @@ import { styles } from '@/theme/styles/app_quotes_summary';
 import { ScreenContainer } from '@/components/common/ScreenContainer';
 import type { Product } from '@/features/catalog/types';
 import { QuoteItemEditorModal } from '@/features/quotes/components/QuoteItemEditorModal';
+import { QuoteTermsModal } from '@/features/quotes/components/QuoteTermsModal';
 import { useQuoteBuilder } from '@/features/quotes/QuoteBuilderProvider';
 import { getQuoteTotals, getLineTotal, getUnitPrice } from '@/features/quotes/services/quoteCalculations';
 import { getClientDisplayName, getClientDisplaySubtitle } from '@/features/quotes/services/quoteClient';
@@ -22,12 +23,13 @@ export default function QuoteSummaryScreen() {
   const router = useRouter();
   const { session } = useAuth();
   const { draftId } = useLocalSearchParams<{ draftId?: string }>();
-  const { client, items, status, loadDraft, updateItem, removeItem, saveDraft, markGenerated, duplicateQuote, resetBuilder } = useQuoteBuilder();
+  const { client, items, status, observations, termsAndConditions, loadDraft, updateItem, removeItem, saveDraft, markGenerated, duplicateQuote, resetBuilder } = useQuoteBuilder();
 
   const [hydrating, setHydrating] = useState(!!draftId);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [savingDraft, setSavingDraft] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [termsModalVisible, setTermsModalVisible] = useState(false);
 
   useEffect(() => {
     if (!draftId) return;
@@ -50,13 +52,18 @@ export default function QuoteSummaryScreen() {
     }
   }
 
-  async function handleGenerateAndShare() {
+  function handleOpenTermsModal() {
+    setTermsModalVisible(true);
+  }
+
+  async function handleConfirmTermsAndSend(values: { termsAndConditions: string; observations: string }) {
     try {
       setGenerating(true);
+      setTermsModalVisible(false);
       // A quotation changes to Enviada only after the share action succeeds.
-      const quote = await saveDraft();
+      const quote = await saveDraft(values);
       await shareQuotePdf(quote, session?.user ?? undefined);
-      await markGenerated();
+      await markGenerated(values);
       router.replace('/reports');
     } catch (error) {
       Alert.alert('No se pudo generar el PDF', error instanceof Error ? error.message : 'Intenta de nuevo.');
@@ -65,9 +72,13 @@ export default function QuoteSummaryScreen() {
     }
   }
 
-  function handleDuplicate() {
-    duplicateQuote();
-    router.replace('/quotes/summary');
+  async function handleDuplicate() {
+    try {
+      await duplicateQuote();
+      router.replace('/quotes/summary');
+    } catch (error) {
+      Alert.alert('No se pudo duplicar', error instanceof Error ? error.message : 'Intenta de nuevo.');
+    }
   }
 
   function handleDelete() {
@@ -78,7 +89,8 @@ export default function QuoteSummaryScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            await deleteQuote(draftId ?? '');
+            if (!session?.user.id || !draftId) return;
+            await deleteQuote(session.user.id, draftId);
             resetBuilder();
             router.replace('/reports');
           } catch (error) {
@@ -309,7 +321,7 @@ export default function QuoteSummaryScreen() {
 
         <TouchableOpacity
           style={[styles.btnSend, (items.length === 0 || generating || savingDraft) && styles.btnDisabled]}
-          onPress={handleGenerateAndShare}
+          onPress={handleOpenTermsModal}
           disabled={items.length === 0 || generating || savingDraft}
         >
           <Text style={styles.btnSendText}>{generating ? 'Enviando…' : 'Enviar cotización'}</Text>
@@ -344,7 +356,15 @@ export default function QuoteSummaryScreen() {
           setEditingProduct(null);
         }}
       />
+
+      <QuoteTermsModal
+        visible={termsModalVisible}
+        initialTerms={termsAndConditions}
+        initialObservations={observations}
+        loading={generating}
+        onCancel={() => setTermsModalVisible(false)}
+        onConfirm={handleConfirmTermsAndSend}
+      />
     </ScreenContainer>
   );
 }
-

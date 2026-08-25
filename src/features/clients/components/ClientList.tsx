@@ -1,4 +1,4 @@
-import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { colors } from '@/theme/colors';
 import { radius, spacing } from '@/theme/spacing';
@@ -17,6 +17,8 @@ interface ClientListProps {
   onPressClient?: (client: Client) => void;
   /** Búsqueda en curso: evita mostrar "sin resultados" mientras aún no llega la respuesta. */
   searching?: boolean;
+  refreshing?: boolean;
+  onRefresh?: () => void;
 }
 
 export function ClientList({
@@ -28,6 +30,8 @@ export function ClientList({
   onClearFilters,
   onPressClient,
   searching,
+  refreshing = false,
+  onRefresh,
 }: ClientListProps) {
   return (
     <FlatList
@@ -35,6 +39,9 @@ export function ClientList({
       contentContainerStyle={styles.listContent}
       data={clients}
       keyExtractor={(item) => item.id}
+      refreshControl={
+        onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primaryDark]} /> : undefined
+      }
       renderItem={({ item }) => (
         <TouchableOpacity activeOpacity={0.7} onPress={() => onPressClient?.(item)}>
           <ClientCard client={item} />

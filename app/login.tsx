@@ -1,26 +1,25 @@
+import { useAuth } from '@/features/auth/AuthProvider';
+import { styles } from '@/theme/styles/app_login';
 import { Ionicons } from '@expo/vector-icons';
-import { useState, useRef, useEffect } from 'react';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
+  Animated,
   Dimensions,
+  Easing,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
-  View,
-  Alert,
-  ActivityIndicator,
-  Keyboard,
-  Animated,
-  Easing,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
-import { styles } from '@/theme/styles/app_login';
-import { useAuth } from '@/features/auth/AuthProvider';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -210,7 +209,7 @@ export default function LoginScreen() {
             <View style={styles.heroTextContainer}>
               <Text style={styles.subtitleLeft}>PORTAL DE VENTAS</Text>
               <Text style={styles.titleLeft}>
-                Bienvenido de vuelta,{"\n"}vendedor.
+                Bienvenido. Nos alegra tenerte aqui.
               </Text>
               
               <View style={styles.branchPill}>

@@ -171,11 +171,16 @@ export function useCatalog() {
       setBrowsePage(nextPage);
       setBrowseHasMore(result.hasMore);
     } catch {
-      // El error de "cargar más" no reemplaza el listado ya visible; el
-      // usuario simplemente puede reintentar tocando "cargar más" de nuevo.
+      // Si falla la API (offline) y tenemos allProducts en disco local, expandimos desde memoria
+      if (allProducts && allProducts.length > browseProducts.length) {
+        const nextSlice = allProducts.slice(0, browseProducts.length + PAGE_SIZE);
+        setBrowseProducts(nextSlice);
+        setBrowseHasMore(nextSlice.length < allProducts.length);
+      }
     } finally {
       setLoadingMore(false);
     }
+
   }
 
   function loadMore() {
@@ -260,5 +265,7 @@ export function useCatalog() {
     loadMore,
 
     refresh: reload,
+
+    refreshing: bootLoading,
   };
 }

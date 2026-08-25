@@ -1,7 +1,3 @@
-import { Stack, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TextInput, View } from 'react-native';
-import { styles } from '@/theme/styles/app_quotes_select-products';
 import { Button } from '@/components/common/Button';
 import { ScreenContainer } from '@/components/common/ScreenContainer';
 import { ProductList } from '@/features/catalog/components/ProductList';
@@ -11,9 +7,11 @@ import { QuoteItemEditorModal } from '@/features/quotes/components/QuoteItemEdit
 import { useQuoteBuilder } from '@/features/quotes/QuoteBuilderProvider';
 import { getQuoteTotals } from '@/features/quotes/services/quoteCalculations';
 import { colors } from '@/theme/colors';
-import { radius, spacing } from '@/theme/spacing';
-import { typography } from '@/theme/typography';
+import { styles } from '@/theme/styles/app_quotes_select-products';
 import { formatCurrency } from '@/utils/currency';
+import { Stack, useRouter } from 'expo-router';
+import { useState } from 'react';
+import { ActivityIndicator, Text, TextInput, View } from 'react-native';
 
 /** Paso 2 del flujo de cotización: elegir productos del catálogo y añadirlos. */
 export default function SelectProductsScreen() {
@@ -43,7 +41,7 @@ export default function SelectProductsScreen() {
 
       <TextInput
         style={styles.searchInput}
-        placeholder="Buscar producto por nombre o código..."
+        placeholder="Buscar producto por nombre"
         placeholderTextColor={colors.gray}
         value={search}
         onChangeText={setSearch}

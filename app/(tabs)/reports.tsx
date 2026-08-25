@@ -1,17 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useRef, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Alert, Animated, PanResponder, ScrollView, StyleSheet, Text, TouchableOpacity, View, Modal, Pressable } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Modal, PanResponder, Pressable, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 import { ScreenContainer } from '@/components/common/ScreenContainer';
-import { deleteQuote, listQuotes, updateQuoteStatus } from '@/features/quotes/services/quoteService';
-import { useQuoteBuilder } from '@/features/quotes/QuoteBuilderProvider';
-import type { Quote, QuoteItem, PriceTier, QuoteStatus } from '@/features/quotes/types';
+import { useAuth } from '@/features/auth/AuthProvider';
+import { useAppBootstrap } from '@/features/bootstrap/AppBootstrapProvider';
 import type { Product } from '@/features/catalog/types';
-import { spacing } from '@/theme/spacing';
+import { useQuoteBuilder } from '@/features/quotes/QuoteBuilderProvider';
+import { deleteQuote, listQuotes, updateQuoteStatus } from '@/features/quotes/services/quoteService';
+import type { PriceTier, Quote, QuoteItem, QuoteStatus } from '@/features/quotes/types';
+import { useSellerDashboard } from '@/features/sellers/SellerProvider';
 import { colors } from '@/theme/colors';
-import { formatCurrency } from '@/utils/currency';
 import { modalStyles, styles } from '@/theme/styles/app_tabs_reports';
+import { formatCurrency } from '@/utils/currency';
 
 type PeriodType = 'Semana' | 'Mes' | 'Trimestre';
 
@@ -58,7 +60,7 @@ function SwipeableQuoteCard({
     })
   ).current;
 
-  const canDelete = quote.status === 'Pendiente' || quote.status === 'Rechazada';
+  const canDelete = quote.status === 'Pendiente';
   if (!canDelete) return <View>{children}</View>;
 
   function handleDeletePress() {
@@ -116,7 +118,11 @@ function getQuoteStatusText(quote: Quote): 'Enviada' | 'Aceptada' | 'Pendiente' 
 
 export default function ReportsScreen() {
   const router = useRouter();
+  const { session } = useAuth();
+  const { seller } = useSellerDashboard();
+  const userId = session?.user.id;
   const { resetBuilder } = useQuoteBuilder();
+  const { reload, isLoading: isRefreshingData } = useAppBootstrap();
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -129,7 +135,13 @@ export default function ReportsScreen() {
     setLoading(true);
     setError(null);
 
-    listQuotes()
+    if (!userId) {
+      setQuotes([]);
+      setLoading(false);
+      return;
+    }
+
+    listQuotes(userId)
       .then((data) => {
         if (!isMounted) return;
         setQuotes(data);
@@ -146,7 +158,7 @@ export default function ReportsScreen() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [userId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -163,6 +175,11 @@ export default function ReportsScreen() {
     router.push({ pathname: '/quotes/summary', params: { draftId: quote.id } });
   }
 
+  function handleRefresh() {
+    reload();
+    loadQuotes();
+  }
+
   function handleDeleteQuote(quote: Quote) {
     Alert.alert('Eliminar cotización', 'Esta acción no se puede deshacer.', [
       { text: 'Cancelar', style: 'cancel' },
@@ -171,7 +188,8 @@ export default function ReportsScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            await deleteQuote(quote.id);
+            if (!userId) return;
+            await deleteQuote(userId, quote.id);
             loadQuotes();
           } catch (error) {
             Alert.alert('No se pudo eliminar', error instanceof Error ? error.message : 'Intenta de nuevo.');
@@ -189,7 +207,8 @@ export default function ReportsScreen() {
 
   async function updateStatus(id: string, status: QuoteStatus) {
     try {
-      await updateQuoteStatus(id, status);
+      if (!userId) return;
+      await updateQuoteStatus(userId, id, status);
       loadQuotes();
     } catch (error) {
       Alert.alert('No se pudo actualizar', error instanceof Error ? error.message : 'Intenta de nuevo.');
@@ -247,6 +266,7 @@ export default function ReportsScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={loading || isRefreshingData} onRefresh={handleRefresh} colors={[colors.primaryDark]} />}
       >
         <Text style={styles.title}>Cotizaciones</Text>
 
@@ -328,36 +348,35 @@ export default function ReportsScreen() {
 
               return (
                 <SwipeableQuoteCard key={quote.id} quote={quote} onDelete={() => handleDeleteQuote(quote)}>
-                  <TouchableOpacity
-                    style={styles.quoteCard}
-                    activeOpacity={0.8}
-                    onPress={() => handleOpenQuote(quote)}
+                  <View style={styles.quoteCard}>
+                  <Pressable
+                    style={styles.quoteCardHeader}
+                    disabled={quote.status !== 'Enviada'}
+                    onPress={() => handleStatusChange(quote)}
                   >
-                  <View style={styles.quoteCardHeader}>
                     <Text style={styles.quoteCardCode}>
                       COT-{cotNum} · {formatQuoteDate(quote.createdAt)}
                     </Text>
-                    <TouchableOpacity
-                      activeOpacity={quote.status === 'Enviada' ? 0.7 : 1}
-                      disabled={quote.status !== 'Enviada'}
-                      onPress={() => handleStatusChange(quote)}
-                      style={[styles.statusBadge, { backgroundColor: badgeStyle.bg }]}
-                    >
+                    <View style={[styles.statusBadge, { backgroundColor: badgeStyle.bg }]}>
                       <Text style={[styles.statusBadgeText, { color: badgeStyle.text }]}>
                         {statusText}
                       </Text>
-                    </TouchableOpacity>
-                  </View>
+                    </View>
+                  </Pressable>
 
                   <Text style={styles.quoteCardClient}>{clientName}</Text>
 
                   <View style={styles.dottedDivider} />
 
-                  <View style={styles.quoteCardFooter}>
+                  <TouchableOpacity
+                    style={styles.quoteCardFooter}
+                    activeOpacity={0.7}
+                    onPress={() => handleOpenQuote(quote)}
+                  >
                     <Text style={styles.quoteCardPrice}>{formatCurrency(total)}</Text>
                     <Text style={styles.quoteCardAction}>Ver &gt;</Text>
-                  </View>
                   </TouchableOpacity>
+                  </View>
                 </SwipeableQuoteCard>
               );
             })}

@@ -1,8 +1,8 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
-import { formatCurrency } from '@/utils/currency';
 import type { User } from '@/features/auth/types';
+import { formatCurrency } from '@/utils/currency';
 
 import type { Quote } from '../types';
 import { getLineTotal, getQuoteTotals, getUnitPrice } from './quoteCalculations';
@@ -362,21 +362,23 @@ function buildHtml(quote: Quote, seller?: User): string {
           <!-- Footer Area / Totals & Notes -->
           <section class="footer-container">
             <div class="notes-section">
-              <div class="note-card yellow-accent">
-                <div class="note-title">Observaciones</div>
-                <div class="note-text">
-                  El precio especial de la proforma incluye el primer mantenimiento preventivo gratuito a las 50 horas de uso. Las entregas se realizarán directamente en las bodegas del cliente sin costo adicional de transporte dentro del perímetro urbano.
+              ${quote.observations && quote.observations.trim() ? `
+                <div class="note-card yellow-accent">
+                  <div class="note-title">Observaciones</div>
+                  <div class="note-text">
+                    ${quote.observations.trim().replace(/\n/g, '<br/>')}
+                  </div>
                 </div>
-              </div>
+              ` : ''}
               
-              <div class="note-card">
-                <div class="note-title">Términos y Acuerdos Comerciales</div>
-                <div class="note-text">
-                  1. <strong>Forma de Pago:</strong> Contra entrega o crédito autorizado previo.<br/>
-                  2. <strong>Garantía:</strong> 1 año de garantía total contra defectos de fabricación en talleres autorizados.<br/>
-                  3. <strong>Repuestos:</strong> Stock de repuestos originales garantizado por 5 años.
+              ${quote.termsAndConditions && quote.termsAndConditions.trim() ? `
+                <div class="note-card">
+                  <div class="note-title">Términos y Acuerdos Comerciales</div>
+                  <div class="note-text">
+                    ${quote.termsAndConditions.trim().replace(/\n/g, '<br/>')}
+                  </div>
                 </div>
-              </div>
+              ` : ''}
             </div>
             
             <div class="totals-box">
@@ -385,7 +387,7 @@ function buildHtml(quote: Quote, seller?: User): string {
                 <span class="val">${formatCurrency(grossSubtotal)}</span>
               </div>
               <div class="totals-row">
-                <span class="label">Descuento</span>
+                <span class="label">Descuento </span>
                 <span class="val">-${formatCurrency(totalDiscount)}</span>
               </div>
               <div class="totals-row">

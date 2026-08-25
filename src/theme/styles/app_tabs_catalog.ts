@@ -117,6 +117,21 @@ export const styles = StyleSheet.create({
   topControlsGroup: {
     gap: 6,
   },
+  commercialReference: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  commercialReferenceText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.grayDark,
+  },
   sortLeftText: {
     fontSize: 12,
     fontWeight: '700',
@@ -275,4 +290,3 @@ export const styles = StyleSheet.create({
     zIndex: 999,
   },
 });
-
