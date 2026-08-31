@@ -281,7 +281,7 @@ export default function HomeScreen() {
             <View style={styles.metricIconContainer}>
               <Ionicons name="document-text" size={16} color={colors.black} />
             </View>
-            <Text style={styles.metricValue}>{totalQuotesCount > 0 ? totalQuotesCount : 3}</Text>
+            <Text style={styles.metricValue}>{totalQuotesCount > 0 ? totalQuotesCount : 0}</Text>
             <Text style={styles.metricLabel}>Cotizaciones</Text>
           </View>
         </View>

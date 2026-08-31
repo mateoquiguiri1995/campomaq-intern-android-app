@@ -63,12 +63,12 @@ function InvoiceCard({ invoice }: { invoice: ClientInvoice }) {
     <Pressable style={styles.invoiceCard} onPress={() => router.push(`/client/invoice/${invoice.invoiceNumber}`)}>
       <View style={styles.invoiceTopRow}>
         <Text style={styles.invoiceHeader}>
-          {formatDate(invoice.issuedAt).toUpperCase()} · {isSalesNote ? `Nota de Venta #${invoice.invoiceNumber}` : invoice.code}
+          {formatDate(invoice.issuedAt).toUpperCase()} · {isSalesNote ? `nota de credito #${invoice.invoiceNumber}` : invoice.code}
         </Text>
         <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
           {isSalesNote && (
             <Badge
-              label="Nota de Venta"
+              label="nota de credito"
               backgroundColor="#E3F2FD"
               textColor="#1565C0"
             />
@@ -83,7 +83,7 @@ function InvoiceCard({ invoice }: { invoice: ClientInvoice }) {
         </View>
       </View>
 
-      <Text style={styles.invoiceName}>{isSalesNote ? 'Nota de venta' : invoice.name}</Text>
+      <Text style={styles.invoiceName}>{isSalesNote ? 'nota de credito' : invoice.name}</Text>
       <Text style={styles.invoiceMeta}>
         {invoice.itemCount} {invoice.itemCount === 1 ? 'Item' : 'items'} - {invoice.paymentMethod}
       </Text>

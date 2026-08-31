@@ -34,7 +34,7 @@ export default function InvoiceScreen() {
       <Stack.Screen
         options={{
           headerShown: true,
-          title: isSalesNote ? `Nota de Venta #${invoiceNumber}` : `Factura #${invoiceNumber}`,
+          title: isSalesNote ? `nota de credito #${invoiceNumber}` : `Factura #${invoiceNumber}`,
           headerBackTitle: 'Cliente',
         }}
       />
@@ -45,11 +45,11 @@ export default function InvoiceScreen() {
           <View style={styles.headerCard}>
             <View style={styles.headerTitleRow}>
               <Text style={styles.title}>
-                {isSalesNote ? `NOTA DE VENTA #${invoice.number}` : `FACTURA #${invoice.number}`}
+                {isSalesNote ? `nota de credito #${invoice.number}` : `FACTURA #${invoice.number}`}
               </Text>
               {isSalesNote && (
                 <Badge
-                  label="Nota de Venta"
+                  label="nota de credito"
                   backgroundColor="#E3F2FD"
                   textColor="#1565C0"
                 />
