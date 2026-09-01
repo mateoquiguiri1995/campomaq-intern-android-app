@@ -34,28 +34,4 @@ export function TextField({ label, icon, rightIcon, style, ...inputProps }: Text
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    gap: spacing.xs,
-  },
-  label: {
-    ...typography.caption,
-    color: colors.grayDark,
-    fontWeight: '600',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    paddingBottom: spacing.sm,
-  },
-  input: {
-    flex: 1,
-    padding: 0,
-    ...typography.body,
-    fontSize: 16,
-    color: colors.black,
-  },
-});
+import { styles } from '@/theme/styles/src_components_common_TextField';

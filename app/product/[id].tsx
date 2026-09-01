@@ -1,11 +1,14 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
-
+import { useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
+import { styles } from '@/theme/styles/app_product_id_';
 import { ScreenContainer } from '@/components/common/ScreenContainer';
 import { ProductDetail } from '@/features/catalog/components/ProductDetail';
 import type { Product } from '@/features/catalog/types';
 import { colors } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
+import { shareProductTechnicalSheetPdf } from '@/features/catalog/services/productPdf';
 
 /**
  * Pantalla de detalle de producto.
@@ -18,6 +21,7 @@ export default function ProductDetailScreen() {
   const { data } = useLocalSearchParams<{ id: string; data?: string }>();
 
   let product: Product | null = null;
+  const [isSharing, setIsSharing] = useState(false);
 
   try {
     product = data ? JSON.parse(data) : null;
@@ -27,7 +31,7 @@ export default function ProductDetailScreen() {
 
   if (!product) {
     return (
-      <ScreenContainer>
+      <ScreenContainer hasHeader>
         <Stack.Screen options={{ headerShown: true, title: 'Detalle' }} />
 
         <View style={styles.center}>
@@ -40,8 +44,20 @@ export default function ProductDetailScreen() {
     );
   }
 
+  async function handleShareTechnicalSheet() {
+    if (isSharing || !product) return;
+    try {
+      setIsSharing(true);
+      await shareProductTechnicalSheetPdf(product);
+    } catch (error) {
+      Alert.alert('No se pudo compartir', error instanceof Error ? error.message : 'Intenta nuevamente.');
+    } finally {
+      setIsSharing(false);
+    }
+  }
+
   return (
-    <ScreenContainer>
+    <ScreenContainer hasHeader>
       <Stack.Screen
         options={{
           headerShown: true,
@@ -50,6 +66,22 @@ export default function ProductDetailScreen() {
           headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.black,
           headerShadowVisible: false,
+          headerRight: () => (
+            <Pressable
+              onPress={handleShareTechnicalSheet}
+              disabled={isSharing}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Compartir ficha técnica"
+              style={{ padding: spacing.xs }}
+            >
+              {isSharing ? (
+                <ActivityIndicator size="small" color={colors.black} />
+              ) : (
+                <Ionicons name="share-outline" size={24} color={colors.black} />
+              )}
+            </Pressable>
+          ),
         }}
       />
 
@@ -58,16 +90,3 @@ export default function ProductDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-
-  message: {
-    textAlign: 'center',
-    color: colors.grayDark,
-  },
-});

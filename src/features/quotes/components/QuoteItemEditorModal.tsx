@@ -53,14 +53,79 @@ export function QuoteItemEditorModal({
 
   if (!product) return null;
 
+  const selectedQuantity = parseInt(quantity, 10) || 0;
+  const hasSufficientStock = selectedQuantity <= product.stockQty;
+
   function adjustQuantity(delta: number) {
     const current = Math.max(1, parseInt(quantity, 10) || 1);
-    setQuantity(String(Math.max(1, current + delta)));
+    const next = Math.min(9999, Math.max(1, current + delta));
+    setQuantity(String(next));
+  }
+
+  function handleQuantityChange(text: string) {
+    const cleaned = text.replace(/[^0-9]/g, '');
+    const value = parseInt(cleaned, 10);
+    if (cleaned === '') {
+      setQuantity('');
+    } else if (isNaN(value) || value < 1) {
+      setQuantity('1');
+    } else if (value > 9999) {
+      setQuantity('9999');
+    } else {
+      setQuantity(cleaned);
+    }
+  }
+
+  function handleDiscountChange(text: string) {
+    let cleaned = text.replace(/[^0-9.]/g, '');
+    const parts = cleaned.split('.');
+    if (parts.length > 2) {
+      cleaned = `${parts[0]}.${parts.slice(1).join('')}`;
+    }
+
+    // Limit to at most 2 digits
+    let digitCount = 0;
+    let limited = '';
+    for (let i = 0; i < cleaned.length; i++) {
+      const char = cleaned[i];
+      if (char >= '0' && char <= '9') {
+        if (digitCount < 2) {
+          limited += char;
+          digitCount++;
+        }
+      } else {
+        if (digitCount < 2) {
+          limited += char;
+        }
+      }
+    }
+    cleaned = limited;
+
+    if (cleaned === '' || cleaned === '.') {
+      setDiscount(cleaned);
+      return;
+    }
+
+    const value = parseFloat(cleaned);
+    if (isNaN(value)) {
+      setDiscount('');
+    } else if (value > 99) {
+      setDiscount('99');
+    } else if (value < 0) {
+      setDiscount('0');
+    } else {
+      if (cleaned.length > 1 && cleaned.startsWith('0') && !cleaned.startsWith('0.')) {
+        cleaned = cleaned.replace(/^0+/, '');
+        if (cleaned === '') cleaned = '0';
+      }
+      setDiscount(cleaned);
+    }
   }
 
   function handleConfirm() {
-    const qty = Math.max(1, parseInt(quantity, 10) || 1);
-    const discountPct = discount.trim() ? Math.min(100, Math.max(0, parseFloat(discount))) : undefined;
+    // Aun sin existencias se puede generar la proforma; el PDF lo advertirá.
+    const qty = Math.min(9999, Math.max(1, parseInt(quantity, 10) || 1));
+    const discountPct = discount.trim() ? Math.min(99, Math.max(0, parseFloat(discount))) : undefined;
     onConfirm({ quantity: qty, priceTier: tier, discountPct });
   }
 
@@ -87,7 +152,17 @@ export function QuoteItemEditorModal({
             ))}
           </View>
 
-          <Text style={styles.sectionLabel}>Cantidad</Text>
+          <View style={styles.labelRow}>
+            <Text style={styles.sectionLabel}>Cantidad</Text>
+            <Text style={[
+              styles.stockLabel,
+              hasSufficientStock ? styles.stockOk : styles.stockOut
+            ]}>
+              {hasSufficientStock
+                ? `Stock disponible: ${product.stockQty}`
+                : `Stock insuficiente: ${product.stockQty} disponible`}
+            </Text>
+          </View>
           <View style={styles.quantityRow}>
             <Pressable style={styles.stepButton} onPress={() => adjustQuantity(-1)}>
               <Text style={styles.stepButtonText}>−</Text>
@@ -95,8 +170,9 @@ export function QuoteItemEditorModal({
             <TextInput
               style={styles.quantityInput}
               value={quantity}
-              onChangeText={setQuantity}
+              onChangeText={handleQuantityChange}
               keyboardType="number-pad"
+              maxLength={4}
             />
             <Pressable style={styles.stepButton} onPress={() => adjustQuantity(1)}>
               <Text style={styles.stepButtonText}>+</Text>
@@ -107,10 +183,11 @@ export function QuoteItemEditorModal({
           <TextInput
             style={styles.discountInput}
             value={discount}
-            onChangeText={setDiscount}
+            onChangeText={handleDiscountChange}
             keyboardType="decimal-pad"
             placeholder="0"
             placeholderTextColor={colors.gray}
+            maxLength={5}
           />
 
           <View style={styles.actions}>
@@ -125,106 +202,4 @@ export function QuoteItemEditorModal({
   );
 }
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.35)',
-  },
-  sheet: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
-    padding: spacing.lg,
-    gap: spacing.sm,
-  },
-  productName: {
-    ...typography.subtitle,
-    color: colors.black,
-    fontWeight: '700',
-  },
-  productCode: {
-    ...typography.caption,
-    color: colors.gray,
-    marginBottom: spacing.sm,
-  },
-  sectionLabel: {
-    ...typography.caption,
-    color: colors.grayDark,
-    fontWeight: '600',
-    marginTop: spacing.sm,
-  },
-  tierRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  tierChip: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-  },
-  tierChipSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  tierLabel: {
-    ...typography.caption,
-    color: colors.black,
-    fontWeight: '600',
-  },
-  tierLabelSelected: {
-    color: colors.onPrimary,
-  },
-  tierPrice: {
-    ...typography.body,
-    color: colors.black,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  quantityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  stepButton: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepButtonText: {
-    ...typography.subtitle,
-    color: colors.black,
-    fontWeight: '700',
-  },
-  quantityInput: {
-    ...typography.subtitle,
-    color: colors.black,
-    minWidth: 56,
-    textAlign: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    paddingVertical: spacing.xs,
-  },
-  discountInput: {
-    ...typography.body,
-    color: colors.black,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    paddingVertical: spacing.sm,
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.md,
-  },
-  confirmButton: {
-    flex: 1,
-  },
-});
+import { styles } from '@/theme/styles/src_features_quotes_components_QuoteItemEditorModal';

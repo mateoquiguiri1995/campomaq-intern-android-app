@@ -1,19 +1,21 @@
-import { useEffect, useState, useRef } from 'react';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import * as SplashScreen from 'expo-splash-screen';
 import {
-  useFonts,
   Barlow_400Regular,
   Barlow_500Medium,
   Barlow_600SemiBold,
   Barlow_700Bold,
+  useFonts,
 } from '@expo-google-fonts/barlow';
+import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useRef, useState } from 'react';
 
-import { AuthProvider, useAuth } from '@/features/auth/AuthProvider';
-import { AppBootstrapProvider, useAppBootstrap } from '@/features/bootstrap/AppBootstrapProvider';
 import { LoadingScreen } from '@/components/common/LoadingScreen';
 import { SalesLoadingScreen } from '@/components/common/SalesLoadingScreen';
+import { AuthProvider, useAuth } from '@/features/auth/AuthProvider';
+import { AppBootstrapProvider, useAppBootstrap } from '@/features/bootstrap/AppBootstrapProvider';
+import { QuoteBuilderProvider } from '@/features/quotes/QuoteBuilderProvider';
+import { SellerProvider } from '@/features/sellers/SellerProvider';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -48,16 +50,30 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <AppBootstrapProvider>
-        <StatusBar style="dark" />
-        <RootNavigator key={SESSION_MOUNT_KEY} />
+        <SellerProvider>
+          <SessionQuoteBuilder />
+        </SellerProvider>
       </AppBootstrapProvider>
     </AuthProvider>
   );
 }
 
+/** El estado de una cotización en curso nunca se comparte entre cuentas. */
+function SessionQuoteBuilder() {
+  const { session } = useAuth();
+  const userId = session?.user.id ?? null;
+
+  return (
+    <QuoteBuilderProvider userId={userId}>
+      <StatusBar style="dark" />
+      <RootNavigator key={userId ?? 'anonymous'} />
+    </QuoteBuilderProvider>
+  );
+}
+
 function RootNavigator() {
-  const { session, isLoading, hasSession } = useAuth();
-  const { isLoading: isBootstrapping, progress: bootstrapProgress, error, reload } = useAppBootstrap();
+  const { session, isLoading, hasSession, profileError, retryProfile } = useAuth();
+  const { isLoading: isBootstrapping, progress: bootstrapProgress } = useAppBootstrap();
   const [showSplash, setShowSplash] = useState(true);
   const [showSalesSplash, setShowSalesSplash] = useState(false);
   const prevHasSession = useRef(hasSession);
@@ -93,14 +109,14 @@ function RootNavigator() {
   // hasSession ya es true (login recién hecho o sesión persistida): a partir
   // de acá /auth/me y la precarga de productos/clientes corren en paralelo,
   // así que se muestra una sola pantalla de carga hasta que ambos terminen.
-  if (hasSession && error) {
+  if (hasSession && profileError) {
     return (
       <LoadingScreen
-        title="No pudimos preparar la app"
+        title="No pudimos cargar tu perfil"
         subtitle="Revisa tu conexión e inténtalo de nuevo."
-        detail={error}
+        detail={profileError}
         actionLabel="Reintentar"
-        onAction={reload}
+        onAction={retryProfile}
       />
     );
   }
@@ -119,16 +135,21 @@ function RootNavigator() {
     );
   }
 
+  if (!session) {
+    return (
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="login" />
+      </Stack>
+    );
+  }
+
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Protected guard={!!session}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="product/[id]" />
-        <Stack.Screen name="quotes" />
-      </Stack.Protected>
-      <Stack.Protected guard={!session}>
-        <Stack.Screen name="login" />
-      </Stack.Protected>
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="product/[id]" />
+      <Stack.Screen name="client/[id]" />
+      <Stack.Screen name="client/invoice/[invoiceNumber]" />
+      <Stack.Screen name="quotes" />
     </Stack>
   );
 }

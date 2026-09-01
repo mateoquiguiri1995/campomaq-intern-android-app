@@ -1,10 +1,26 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
+import NetInfo from '@react-native-community/netinfo';
 
 import { useAuth } from '@/features/auth/AuthProvider';
 import type { Client } from '@/features/clients/types';
-import { getClients } from '@/features/clients/services/clientService';
+import { getAllClients, getClients } from '@/features/clients/services/clientService';
 import type { Product } from '@/features/catalog/types';
 import { getAllProducts, getProducts } from '@/features/catalog/services/productService';
+import { AppState, type AppStateStatus } from 'react-native';
+import {
+  getCachedAllProducts,
+  getCachedProducts,
+  prefetchProductImages,
+  saveCachedAllProducts,
+  saveCachedProducts,
+} from '@/features/catalog/services/productCache';
+
+import {
+  getCachedAllClients,
+  getCachedClients,
+  saveCachedAllClients,
+  saveCachedClients,
+} from '@/features/clients/services/clientCache';
 
 const CLIENTS_PRELOAD_PAGE_SIZE = 10;
 
@@ -13,15 +29,23 @@ interface AppBootstrapContextValue {
   productsHasMore: boolean;
   clients: Client[];
   clientsTotal: number;
+  /** Error de la carga inicial de productos. No bloquea el resto de la app si hay caché en disco. */
+  productsError: string | null;
+  /** Error de la carga inicial de clientes. No bloquea el resto de la app si hay caché en disco. */
+  clientsError: string | null;
   /** Catálogo completo, para filtrar por búsqueda/categoría/marca. Se carga
    *  en segundo plano después del arranque rápido; null hasta que esté listo. */
   allProducts: Product[] | null;
   isLoadingAllProducts: boolean;
+  /** Cartera completa de clientes, para búsqueda instantánea y trabajo offline. */
+  allClients: Client[] | null;
+  isLoadingAllClients: boolean;
   isLoading: boolean;
+  isOfflineMode: boolean;
   progress: number;
-  error: string | null;
   reload: () => void;
 }
+
 
 const AppBootstrapContext = createContext<AppBootstrapContextValue | null>(null);
 
@@ -34,15 +58,22 @@ export function AppBootstrapProvider({ children }: PropsWithChildren) {
   const [clientsTotal, setClientsTotal] = useState(0);
   const [allProducts, setAllProducts] = useState<Product[] | null>(null);
   const [isLoadingAllProducts, setIsLoadingAllProducts] = useState(false);
+  const [allClients, setAllClients] = useState<Client[] | null>(null);
+  const [isLoadingAllClients, setIsLoadingAllClients] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [error, setError] = useState<string | null>(null);
+  const [productsError, setProductsError] = useState<string | null>(null);
+  const [clientsError, setClientsError] = useState<string | null>(null);
   const [reloadIndex, setReloadIndex] = useState(0);
 
-  // Arranque rápido: solo la primera página de productos y clientes. Se
-  // dispara apenas Supabase confirma la sesión (hasSession), sin esperar a
-  // que /auth/me termine de armar el perfil, para que ambas cosas corran en
-  // paralelo en vez de una detrás de la otra.
+  const reload = useCallback(() => {
+    setReloadIndex((current) => current + 1);
+  }, []);
+
+  // Arranque híbrido (Stale-While-Revalidate):
+  // 1. Intenta cargar de inmediato desde el disco local para permitir operación offline sin esperas.
+  // 2. En segundo plano consulta la API de Azure para refrescar el disco local con datos actualizados.
   useEffect(() => {
     let isMounted = true;
 
@@ -52,8 +83,11 @@ export function AppBootstrapProvider({ children }: PropsWithChildren) {
       setClients([]);
       setClientsTotal(0);
       setAllProducts(null);
-      setError(null);
+      setAllClients(null);
+      setProductsError(null);
+      setClientsError(null);
       setIsLoading(false);
+      setIsOfflineMode(false);
       setProgress(0);
       return () => {
         isMounted = false;
@@ -61,21 +95,62 @@ export function AppBootstrapProvider({ children }: PropsWithChildren) {
     }
 
     setIsLoading(true);
-    setError(null);
-    setAllProducts(null);
-    setProgress(10); // Empezamos en 10%
+    setProductsError(null);
+    setClientsError(null);
+    setProgress(10);
 
+    let hasLocalCache = false;
+
+    // FASE 1: Lectura inmediata desde disco local (0ms o casi 0ms)
+    Promise.all([
+      getCachedProducts(),
+      getCachedAllProducts(),
+      getCachedClients(),
+      getCachedAllClients(),
+    ]).then(([cachedProducts, cachedAllProducts, cachedClients, cachedAllClients]) => {
+      if (!isMounted) return;
+
+      if (cachedProducts || cachedAllProducts || cachedClients || cachedAllClients) {
+        hasLocalCache = true;
+        if (cachedProducts) {
+          setProducts(cachedProducts);
+          setProductsHasMore(true);
+        }
+        if (cachedAllProducts) {
+          setAllProducts(cachedAllProducts);
+          if (!cachedProducts) setProducts(cachedAllProducts.slice(0, 20));
+        }
+        if (cachedClients) {
+          setClients(cachedClients.clients);
+          setClientsTotal(cachedClients.total);
+        }
+        if (cachedAllClients) {
+          setAllClients(cachedAllClients);
+          if (!cachedClients) {
+            setClients(cachedAllClients.slice(0, 10));
+            setClientsTotal(cachedAllClients.length);
+          }
+        }
+        // Si había caché en disco, deshabilitamos la pantalla de carga para interacción inmediata
+        setProgress(100);
+        setIsLoading(false);
+      }
+    });
+
+    // FASE 2: Sincronización en segundo plano con el backend
     let productsDone = false;
     let clientsDone = false;
-    let hasFailed = false;
+    let productsSyncFailed = false;
+    let clientsSyncFailed = false;
 
     const checkComplete = () => {
-      if (!isMounted || hasFailed) return;
+      if (!isMounted) return;
       if (productsDone && clientsDone) {
+        setIsOfflineMode(hasLocalCache && (productsSyncFailed || clientsSyncFailed));
         setProgress(100);
         setIsLoading(false);
       } else if (productsDone || clientsDone) {
-        setProgress(60); // Uno completado
+        setProgress(60);
       }
     };
 
@@ -84,33 +159,46 @@ export function AppBootstrapProvider({ children }: PropsWithChildren) {
         if (!isMounted) return;
         setProducts(loadedProducts.products);
         setProductsHasMore(loadedProducts.hasMore);
+        saveCachedProducts(loadedProducts.products);
+        setProductsError(null);
         productsDone = true;
         checkComplete();
       })
       .catch((err) => {
         if (!isMounted) return;
-        hasFailed = true;
-        setProducts([]);
-        setProductsHasMore(false);
-        setError(err instanceof Error ? err.message : 'No fue posible preparar los datos de la app.');
-        setIsLoading(false);
+        if (!hasLocalCache) {
+          setProducts([]);
+          setProductsHasMore(false);
+          setProductsError(err instanceof Error ? err.message : 'No fue posible cargar los productos.');
+        } else {
+          productsSyncFailed = true;
+        }
+        productsDone = true;
+        checkComplete();
       });
 
     getClients({ page: 1, pageSize: CLIENTS_PRELOAD_PAGE_SIZE })
       .then((loadedClients) => {
         if (!isMounted) return;
         setClients(loadedClients.clients);
-        setClientsTotal(loadedClients.total ?? loadedClients.clients.length);
+        const total = loadedClients.total ?? loadedClients.clients.length;
+        setClientsTotal(total);
+        saveCachedClients(loadedClients.clients, total);
+        setClientsError(null);
         clientsDone = true;
         checkComplete();
       })
       .catch((err) => {
         if (!isMounted) return;
-        hasFailed = true;
-        setClients([]);
-        setClientsTotal(0);
-        setError(err instanceof Error ? err.message : 'No fue posible preparar los datos de la app.');
-        setIsLoading(false);
+        if (!hasLocalCache) {
+          setClients([]);
+          setClientsTotal(0);
+          setClientsError(err instanceof Error ? err.message : 'No fue posible cargar los clientes.');
+        } else {
+          clientsSyncFailed = true;
+        }
+        clientsDone = true;
+        checkComplete();
       });
 
     return () => {
@@ -118,22 +206,22 @@ export function AppBootstrapProvider({ children }: PropsWithChildren) {
     };
   }, [hasSession, reloadIndex]);
 
-  // Segundo paso, en segundo plano: trae el resto del catálogo para poder
-  // filtrar por búsqueda/categoría/marca sin bloquear la pantalla de carga.
+  // Carga del catálogo completo de productos en segundo plano + actualización del disco local
   useEffect(() => {
-    if (!hasSession || isLoading || error) return;
+    if (!hasSession || isLoading || productsError) return;
 
     let isMounted = true;
     setIsLoadingAllProducts(true);
 
     getAllProducts()
       .then((all) => {
-        if (isMounted) setAllProducts(all);
+        if (!isMounted) return;
+        setAllProducts(all);
+        saveCachedAllProducts(all);
+        prefetchProductImages(all);
       })
       .catch(() => {
-        // Silencioso: el catálogo paginado ya funciona para navegar; si esto
-        // falla, los filtros simplemente no tendrán todavía el universo
-        // completo hasta el próximo reintento.
+        // Silencioso: si falla la red, conservamos el allProducts obtenido del disco local
       })
       .finally(() => {
         if (isMounted) setIsLoadingAllProducts(false);
@@ -143,11 +231,67 @@ export function AppBootstrapProvider({ children }: PropsWithChildren) {
       isMounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasSession, isLoading, error, reloadIndex]);
+  }, [hasSession, isLoading, productsError, reloadIndex]);
 
-  const reload = useCallback(() => {
-    setReloadIndex((current) => current + 1);
-  }, []);
+  // Carga de la cartera completa de clientes en segundo plano + actualización del disco local
+  useEffect(() => {
+    if (!hasSession || isLoading || clientsError) return;
+
+    let isMounted = true;
+    setIsLoadingAllClients(true);
+
+    getAllClients()
+      .then((all) => {
+        if (!isMounted) return;
+        setAllClients(all);
+        saveCachedAllClients(all);
+      })
+      .catch(() => {
+        // Silencioso: si falla la red, conservamos el allClients obtenido del disco local
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingAllClients(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasSession, isLoading, clientsError, reloadIndex]);
+
+  // Reconexión reactiva al volver a primer plano
+  useEffect(() => {
+    if (!hasSession) return;
+
+    let wasOffline = false;
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      const isOnline = state.isConnected === true && state.isInternetReachable !== false;
+      if (!isOnline) {
+        wasOffline = true;
+        setIsOfflineMode(true);
+      } else if (wasOffline) {
+        wasOffline = false;
+        setIsOfflineMode(false);
+        reload();
+      }
+    });
+
+    return unsubscribe;
+  }, [hasSession, reload]);
+
+  useEffect(() => {
+    if (!hasSession) return;
+
+    const subscription = AppState.addEventListener('change', (nextState: AppStateStatus) => {
+      if (nextState === 'active' && isOfflineMode) {
+        reload();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [hasSession, isOfflineMode, reload]);
 
   const value = useMemo<AppBootstrapContextValue>(
     () => ({
@@ -155,14 +299,33 @@ export function AppBootstrapProvider({ children }: PropsWithChildren) {
       productsHasMore,
       clients,
       clientsTotal,
+      productsError,
+      clientsError,
       allProducts,
       isLoadingAllProducts,
+      allClients,
+      isLoadingAllClients,
       isLoading,
+      isOfflineMode,
       progress,
-      error,
       reload,
     }),
-    [products, productsHasMore, clients, clientsTotal, allProducts, isLoadingAllProducts, isLoading, progress, error, reload]
+    [
+      products,
+      productsHasMore,
+      clients,
+      clientsTotal,
+      productsError,
+      clientsError,
+      allProducts,
+      isLoadingAllProducts,
+      allClients,
+      isLoadingAllClients,
+      isLoading,
+      isOfflineMode,
+      progress,
+      reload,
+    ]
   );
 
   return <AppBootstrapContext.Provider value={value}>{children}</AppBootstrapContext.Provider>;

@@ -2,7 +2,9 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   useState,
   type PropsWithChildren,
 } from 'react';
@@ -26,58 +28,95 @@ interface QuoteBuilderContextValue {
   client: QuoteClient | null;
   items: QuoteItem[];
   status: QuoteStatus;
+  observations: string;
+  termsAndConditions: string;
   setClient: (client: QuoteClient) => void;
+  setTermsAndObservations: (terms: string, obs: string) => void;
   /** Agrega el producto o, si ya estaba en la cotización, reemplaza esa línea. */
   addItem: (product: Product, options: AddItemOptions) => void;
   updateItem: (productId: string, patch: Partial<AddItemOptions>) => void;
   removeItem: (productId: string) => void;
-  /** Carga una cotización guardada (para reabrir un borrador). */
+  /** Carga una cotización guardada para verla o, si está pendiente, editarla. */
   loadDraft: (draftId: string) => Promise<void>;
+  /** Crea una nueva cotización pendiente a partir de la actual. */
+  duplicateQuote: () => Promise<void>;
   /** Persiste el estado actual como borrador y lo devuelve. */
-  saveDraft: () => Promise<Quote>;
+  saveDraft: (extra?: { observations?: string; termsAndConditions?: string }) => Promise<Quote>;
   /** Persiste el estado actual como "generada" (ya se creó/compartió el PDF). */
-  markGenerated: () => Promise<Quote>;
+  markGenerated: (extra?: { observations?: string; termsAndConditions?: string }) => Promise<Quote>;
+  resetBuilder: () => void;
 }
 
 const QuoteBuilderContext = createContext<QuoteBuilderContextValue | null>(null);
 
-export function QuoteBuilderProvider({ children }: PropsWithChildren) {
+interface QuoteBuilderProviderProps extends PropsWithChildren {
+  userId: string | null;
+}
+
+export function QuoteBuilderProvider({ children, userId }: QuoteBuilderProviderProps) {
   const [id, setId] = useState(generateId);
   const [client, setClientState] = useState<QuoteClient | null>(null);
   const [items, setItems] = useState<QuoteItem[]>([]);
-  const [status, setStatus] = useState<QuoteStatus>('draft');
+  const [status, setStatus] = useState<QuoteStatus>('Pendiente');
   const [createdAt, setCreatedAt] = useState(() => new Date().toISOString());
+  const [observations, setObservations] = useState<string>('');
+  const [termsAndConditions, setTermsAndConditions] = useState<string>('');
 
   const resetBuilder = useCallback(() => {
     setId(generateId());
     setClientState(null);
     setItems([]);
-    setStatus('draft');
+    setStatus('Pendiente');
     setCreatedAt(new Date().toISOString());
+    setObservations('');
+    setTermsAndConditions('');
   }, []);
 
-  const setClient = useCallback((next: QuoteClient) => setClientState(next), []);
+  const prevUserIdRef = useRef(userId);
+
+  useEffect(() => {
+    if (prevUserIdRef.current !== userId) {
+      prevUserIdRef.current = userId;
+      resetBuilder();
+    }
+  }, [userId, resetBuilder]);
+
+  const setClient = useCallback((next: QuoteClient) => {
+    if (status === 'Pendiente') setClientState(next);
+  }, [status]);
+
+  const setTermsAndObservations = useCallback((terms: string, obs: string) => {
+    setTermsAndConditions(terms);
+    setObservations(obs);
+  }, []);
 
   const addItem = useCallback((product: Product, options: AddItemOptions) => {
+    if (status !== 'Pendiente') return;
     setItems((current) => [
       ...current.filter((item) => item.product.id !== product.id),
       { product, quantity: options.quantity, priceTier: options.priceTier, discountPct: options.discountPct },
     ]);
-  }, []);
+  }, [status]);
 
   const updateItem = useCallback((productId: string, patch: Partial<AddItemOptions>) => {
+    if (status !== 'Pendiente') return;
     setItems((current) =>
       current.map((item) => (item.product.id === productId ? { ...item, ...patch } : item))
     );
-  }, []);
+  }, [status]);
 
   const removeItem = useCallback((productId: string) => {
+    if (status !== 'Pendiente') return;
     setItems((current) => current.filter((item) => item.product.id !== productId));
-  }, []);
+  }, [status]);
 
   const loadDraft = useCallback(
     async (draftId: string) => {
-      const stored = await quoteService.getQuote(draftId);
+      if (!userId) {
+        resetBuilder();
+        return;
+      }
+      const stored = await quoteService.getQuote(userId, draftId);
       if (!stored) {
         resetBuilder();
         return;
@@ -87,34 +126,64 @@ export function QuoteBuilderProvider({ children }: PropsWithChildren) {
       setItems(stored.items);
       setStatus(stored.status);
       setCreatedAt(stored.createdAt);
+      setObservations(stored.observations ?? '');
+      setTermsAndConditions(stored.termsAndConditions ?? '');
     },
-    [resetBuilder]
+    [resetBuilder, userId]
   );
 
   const persist = useCallback(
-    async (nextStatus: QuoteStatus): Promise<Quote> => {
+    async (nextStatus: QuoteStatus, extra?: { observations?: string; termsAndConditions?: string }): Promise<Quote> => {
+      if (!userId) {
+        throw new Error('Tu sesión ya no está disponible. Vuelve a iniciar sesión.');
+      }
       if (!client) {
         throw new Error('Selecciona o registra un cliente antes de guardar.');
       }
+      if (status !== 'Pendiente') {
+        throw new Error('La cotización enviada no puede modificarse. Duplícala para crear una nueva.');
+      }
+
+      const obsVal = extra?.observations !== undefined ? extra.observations : observations;
+      const termsVal = extra?.termsAndConditions !== undefined ? extra.termsAndConditions : termsAndConditions;
 
       const quote: Quote = {
         id,
         client,
         items,
         status: nextStatus,
+        observations: obsVal.trim() || undefined,
+        termsAndConditions: termsVal.trim() || undefined,
         createdAt,
         updatedAt: new Date().toISOString(),
       };
 
-      await quoteService.saveQuote(quote);
+      await quoteService.saveQuote(userId, quote);
       setStatus(nextStatus);
+      if (extra?.observations !== undefined) setObservations(extra.observations);
+      if (extra?.termsAndConditions !== undefined) setTermsAndConditions(extra.termsAndConditions);
       return quote;
     },
-    [id, client, items, createdAt]
+    [id, client, items, createdAt, status, userId, observations, termsAndConditions]
   );
 
-  const saveDraft = useCallback(() => persist('draft'), [persist]);
-  const markGenerated = useCallback(() => persist('generated'), [persist]);
+  const saveDraft = useCallback((extra?: { observations?: string; termsAndConditions?: string }) => persist('Pendiente', extra), [persist]);
+  const markGenerated = useCallback((extra?: { observations?: string; termsAndConditions?: string }) => persist('Enviada', extra), [persist]);
+
+  const duplicateQuote = useCallback(async () => {
+    if (!userId) {
+      throw new Error('Tu sesión ya no está disponible. Vuelve a iniciar sesión.');
+    }
+
+    const duplicated = await quoteService.duplicateQuote(userId, id);
+    setId(duplicated.id);
+    setClientState(duplicated.client);
+    setItems(duplicated.items);
+    setStatus(duplicated.status);
+    setCreatedAt(duplicated.createdAt);
+    setObservations(duplicated.observations ?? '');
+    setTermsAndConditions(duplicated.termsAndConditions ?? '');
+  }, [id, userId]);
 
   const value = useMemo<QuoteBuilderContextValue>(
     () => ({
@@ -122,15 +191,37 @@ export function QuoteBuilderProvider({ children }: PropsWithChildren) {
       client,
       items,
       status,
+      observations,
+      termsAndConditions,
       setClient,
+      setTermsAndObservations,
       addItem,
       updateItem,
       removeItem,
       loadDraft,
+      duplicateQuote,
       saveDraft,
       markGenerated,
+      resetBuilder,
     }),
-    [id, client, items, status, setClient, addItem, updateItem, removeItem, loadDraft, saveDraft, markGenerated]
+    [
+      id,
+      client,
+      items,
+      status,
+      observations,
+      termsAndConditions,
+      setClient,
+      setTermsAndObservations,
+      addItem,
+      updateItem,
+      removeItem,
+      loadDraft,
+      duplicateQuote,
+      saveDraft,
+      markGenerated,
+      resetBuilder,
+    ]
   );
 
   return <QuoteBuilderContext.Provider value={value}>{children}</QuoteBuilderContext.Provider>;

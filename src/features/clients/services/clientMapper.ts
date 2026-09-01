@@ -7,7 +7,31 @@ export function mapApiClient(apiClient: ApiClient): Client {
     name: apiClient.name,
     ruc: apiClient.id,
     email: apiClient.email,
-    phone: apiClient.phonePrimary,
+    phone: apiClient.phonePrimary ?? apiClient.phoneSecondary ?? undefined,
+    phoneSecondary: apiClient.phoneSecondary ?? undefined,
     location: apiClient.address,
+    score: apiClient.score,
+    hasPendingCredit: apiClient.hasPendingCredit,
+    totalPurchases: apiClient.totalSalesLast6Months ?? 0,
+    lastPurchaseDate: apiClient.lastPurchaseDate,
+    daysSinceLastPurchase: apiClient.daysSinceLastPurchase,
+    frequencyClassification: apiClient.frequencyClassification,
+    purchaseMonthsLast6Months: apiClient.purchaseMonthsLast6Months,
+    recencyStatus: apiClient.recencyStatus,
+    salesCountLast6Months: apiClient.salesCountLast6Months ?? 0,
+    recentInvoices: apiClient.recentInvoices?.map((invoice) => {
+      const isSalesNote = invoice.total === 0;
+      return {
+        id: `${apiClient.id}-${invoice.invoiceNumber}`,
+        invoiceNumber: invoice.invoiceNumber,
+        issuedAt: invoice.invoiceDate,
+        code: isSalesNote ? `nota de credito #${invoice.invoiceNumber}` : `Factura #${invoice.invoiceNumber}`,
+        name: isSalesNote ? 'nota de credito' : 'Factura de venta',
+        itemCount: invoice.itemCount,
+        paymentMethod: invoice.paymentType,
+        total: invoice.total,
+        isSalesNote,
+      };
+    }) ?? [],
   };
 }

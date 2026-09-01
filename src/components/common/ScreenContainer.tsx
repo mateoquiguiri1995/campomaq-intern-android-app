@@ -5,28 +5,45 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 
+import { OfflineBanner } from './OfflineBanner';
+
 interface ScreenContainerProps extends PropsWithChildren {
   /**
    * Si es true (por defecto) envuelve el contenido en ScrollView.
    * Si es false solamente crea el SafeArea.
    */
   scroll?: boolean;
+  /**
+   * Si es true, indica que la pantalla ya muestra una cabecera nativa (headerShown: true)
+   * y por tanto desactiva el inset superior de SafeAreaView para evitar doble espaciado.
+   */
+  hasHeader?: boolean;
+  /**
+   * Si es true (por defecto), muestra el banner sutil de modo offline si la app está sin conexión.
+   */
+  showOfflineBanner?: boolean;
 }
 
 export function ScreenContainer({
   children,
   scroll = true,
+  hasHeader = false,
+  showOfflineBanner = true,
 }: ScreenContainerProps) {
+  const edges = hasHeader ? [] : (['top'] as const);
+
   if (!scroll) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <SafeAreaView style={styles.safeArea} edges={edges}>
+        {showOfflineBanner && <OfflineBanner />}
         <View style={styles.nonScrollContent}>{children}</View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView style={styles.safeArea} edges={edges}>
+      {showOfflineBanner && <OfflineBanner />}
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
@@ -37,21 +54,4 @@ export function ScreenContainer({
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-
-  content: {
-    flexGrow: 1,
-    padding: spacing.md,
-    gap: spacing.md,
-  },
-
-  nonScrollContent: {
-    flex: 1,
-    padding: spacing.md,
-    gap: spacing.md,
-  },
-});
+import { styles } from '@/theme/styles/src_components_common_ScreenContainer';

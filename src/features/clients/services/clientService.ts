@@ -1,25 +1,53 @@
-import { getClientsFromApi, type GetClientsFromApiParams } from '../api/clientApi';
 import type { Client } from '../types';
+import { getClientsFromApi } from '../api/clientApi';
 import { mapApiClient } from './clientMapper';
 
-export interface GetClientsParams extends GetClientsFromApiParams {}
+export type { ApiClient } from '../api/clientApi';
+export { mapApiClient };
+
+export interface GetClientsParams {
+  q?: string;
+  page?: number;
+  pageSize?: number;
+}
 
 export interface ClientsResult {
   clients: Client[];
   page: number;
-  /** Puede no venir si el backend todavía no soporta paginación real. */
   total?: number;
 }
 
-/**
- * Obtiene clientes desde la API, paginados y con búsqueda opcional (params.q).
- */
 export async function getClients(params: GetClientsParams = {}): Promise<ClientsResult> {
-  const data = await getClientsFromApi(params);
+  const result = await getClientsFromApi({
+    q: params.q,
+    page: params.page,
+    pageSize: params.pageSize,
+  });
 
   return {
-    clients: data.items.map(mapApiClient),
+    clients: result.items.map(mapApiClient),
     page: params.page ?? 1,
-    total: data.total,
+    total: result.total ?? result.items.length,
   };
+}
+
+/**
+ * Cartera completa de clientes, para filtrar por búsqueda/estado en el
+ * cliente. Sin `page`, el backend devuelve todos los clientes asignados.
+ */
+export async function getAllClients(): Promise<Client[]> {
+  const result = await getClientsFromApi();
+  return result.items.map(mapApiClient);
+}
+
+/**
+ * Busca clientes por nombre, RUC o datos de contacto.
+ */
+export async function searchClients(query: string): Promise<Client[]> {
+  if (!query.trim()) {
+    return getAllClients();
+  }
+
+  const result = await getClientsFromApi({ q: query });
+  return result.items.map(mapApiClient);
 }

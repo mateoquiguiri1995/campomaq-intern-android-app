@@ -47,4 +47,15 @@ export interface Product {
   createdAt?: string;
 
   updatedAt?: string;
+
+  discount?: number;
+}
+
+export interface MonthlyGoal {
+  id?: string;
+  title?: string;
+  period?: string;
+  targetMargin: number;
+  achievedMargin: number;
+  percentage?: number;
 }

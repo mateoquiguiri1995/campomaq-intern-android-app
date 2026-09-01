@@ -45,35 +45,4 @@ export function QuoteItemRow({ item, onEdit, onRemove }: QuoteItemRowProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    gap: spacing.xs,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-  },
-  name: {
-    ...typography.body,
-    color: colors.black,
-    fontWeight: '600',
-    flex: 1,
-  },
-  meta: {
-    ...typography.caption,
-    color: colors.grayDark,
-  },
-  total: {
-    ...typography.subtitle,
-    color: colors.black,
-    fontWeight: '700',
-    alignSelf: 'flex-end',
-  },
-});
+import { styles } from '@/theme/styles/src_features_quotes_components_QuoteItemRow';

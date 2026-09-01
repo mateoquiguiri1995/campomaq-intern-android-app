@@ -33,8 +33,8 @@ export function DraftQuoteCard({ quote, onPress, onDelete }: DraftQuoteCardProps
         <Text style={styles.meta}>
           {quote.items.length} producto(s) · {date}
         </Text>
-        <Text style={[styles.status, quote.status === 'generated' ? styles.statusGenerated : styles.statusDraft]}>
-          {quote.status === 'generated' ? 'PDF generado' : 'Borrador'}
+        <Text style={[styles.status, (quote.status === 'Enviada' || quote.status === 'Aceptada') ? styles.statusGenerated : styles.statusDraft]}>
+          {(quote.status === 'Enviada' || quote.status === 'Aceptada') ? 'PDF generado' : 'Borrador'}
         </Text>
       </View>
 
@@ -48,51 +48,4 @@ export function DraftQuoteCard({ quote, onPress, onDelete }: DraftQuoteCardProps
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  info: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  name: {
-    ...typography.subtitle,
-    color: colors.black,
-    fontWeight: '600',
-  },
-  meta: {
-    ...typography.caption,
-    color: colors.grayDark,
-  },
-  status: {
-    ...typography.caption,
-    fontWeight: '600',
-  },
-  statusDraft: {
-    color: colors.warning,
-  },
-  statusGenerated: {
-    color: colors.success,
-  },
-  rightColumn: {
-    alignItems: 'flex-end',
-    gap: spacing.sm,
-  },
-  total: {
-    ...typography.subtitle,
-    color: colors.black,
-    fontWeight: '700',
-  },
-  deleteButton: {
-    padding: spacing.xs,
-  },
-});
+import { styles } from '@/theme/styles/src_features_quotes_components_DraftQuoteCard';

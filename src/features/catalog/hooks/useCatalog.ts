@@ -14,7 +14,7 @@ export function useCatalog() {
     allProducts,
     isLoadingAllProducts,
     isLoading: bootLoading,
-    error: bootError,
+    productsError,
     reload,
   } = useAppBootstrap();
 
@@ -54,12 +54,10 @@ export function useCatalog() {
   }, [bootProducts, bootProductsHasMore]);
 
   /**
-   * Búsqueda por texto: pega contra /search (con toda la lógica de
-   * coincidencias ya resuelta en el backend), con debounce para no disparar
-   * una request por cada letra. No se limpian los resultados anteriores al
-   * arrancar una búsqueda nueva: así la lista no "parpadea" a vacío mientras
-   * se espera la respuesta, igual que se sentía antes con el filtro en
-   * memoria.
+   * Búsqueda por texto con comportamiento híbrido: filtra inmediatamente
+   * usando la caché local y dispara la búsqueda remota de fondo con debounce.
+   * Limpiamos los resultados asíncronos previos al cambiar el término para que
+   * el catálogo muestre de forma instantánea y limpia la búsqueda local.
    */
   useEffect(() => {
     if (!isSearching) {
@@ -70,6 +68,9 @@ export function useCatalog() {
 
     const currentRequest = ++searchRequestId.current;
     setSearchLoading(true);
+
+    // Limpiamos resultados de la API anteriores para dar paso instantáneo a la caché local
+    setSearchResults([]);
 
     const handle = setTimeout(() => {
       searchProducts(trimmedSearch)
@@ -98,14 +99,39 @@ export function useCatalog() {
     setVisibleCount(PAGE_SIZE);
   }, [search, selectedCategory, selectedBrand]);
 
+  // 1. Filtrado local inmediato usando allProducts (caché) con fallback a browseProducts
+  const cacheResults = useMemo(() => {
+    if (!isSearching) return [];
+
+    const localCatalog = allProducts ?? browseProducts;
+    const query = trimmedSearch.toLowerCase();
+
+    return localCatalog.filter((product) => {
+      const matchesName = product.name.toLowerCase().includes(query);
+      const matchesCode = product.code.toLowerCase().includes(query);
+      const matchesBrand = product.brand ? product.brand.toLowerCase().includes(query) : false;
+      return matchesName || matchesCode || matchesBrand;
+    });
+  }, [allProducts, browseProducts, isSearching, trimmedSearch]);
+
+  // 2. Fusión híbrida libre de duplicados (prioridad a la API, seguido de la caché)
+  const combinedSearchResults = useMemo(() => {
+    if (!isSearching) return [];
+
+    const apiIds = new Set(searchResults.map((p) => p.id));
+    const uniqueCacheResults = cacheResults.filter((p) => !apiIds.has(p.id));
+
+    return [...searchResults, ...uniqueCacheResults];
+  }, [searchResults, cacheResults, isSearching]);
+
   /**
-   * Con búsqueda de texto se parte de lo que devuelve /search. Con solo
+   * Con búsqueda de texto se parte del resultado híbrido unificado. Con solo
    * categoría/marca (sin texto) se filtra sobre el catálogo completo ya
    * cargado en memoria. Sin filtros, se navega el listado paginado tal cual
    * llega del backend.
    */
   const sourceProducts = isSearching
-    ? searchResults
+    ? combinedSearchResults
     : hasCategoryOrBrandFilter
       ? allProducts ?? []
       : browseProducts;
@@ -145,11 +171,16 @@ export function useCatalog() {
       setBrowsePage(nextPage);
       setBrowseHasMore(result.hasMore);
     } catch {
-      // El error de "cargar más" no reemplaza el listado ya visible; el
-      // usuario simplemente puede reintentar tocando "cargar más" de nuevo.
+      // Si falla la API (offline) y tenemos allProducts en disco local, expandimos desde memoria
+      if (allProducts && allProducts.length > browseProducts.length) {
+        const nextSlice = allProducts.slice(0, browseProducts.length + PAGE_SIZE);
+        setBrowseProducts(nextSlice);
+        setBrowseHasMore(nextSlice.length < allProducts.length);
+      }
     } finally {
       setLoadingMore(false);
     }
+
   }
 
   function loadMore() {
@@ -199,7 +230,7 @@ export function useCatalog() {
     // reemplazar toda la pantalla por un spinner en cada letra escrita.
     searchLoading,
 
-    error: bootError,
+    error: productsError,
 
     products: visibleProducts,
 
@@ -234,5 +265,7 @@ export function useCatalog() {
     loadMore,
 
     refresh: reload,
+
+    refreshing: bootLoading,
   };
 }

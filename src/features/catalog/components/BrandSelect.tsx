@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
+import { styles } from '@/theme/styles/src_features_catalog_components_BrandSelect';
 import { colors } from '@/theme/colors';
 import { radius, spacing } from '@/theme/spacing';
 import { typography } from '@/theme/typography';
@@ -49,22 +49,9 @@ export function BrandSelect({
         onPress={() => setOpen(true)}
       >
         <Ionicons
-          name="pricetags-outline"
-          size={10}
-          color={isFiltered ? colors.onPrimary : colors.grayDark}
-        />
-
-        <Text
-          style={[styles.triggerText, isFiltered && styles.triggerTextActive]}
-          numberOfLines={1}
-        >
-          {isFiltered ? selectedBrand : 'Marca'}
-        </Text>
-
-        <Ionicons
-          name="chevron-down"
-          size={14}
-          color={isFiltered ? colors.onPrimary : colors.grayDark}
+          name="funnel"
+          size={18}
+          color={isFiltered ? colors.black : '#FFFFFF'}
         />
       </TouchableOpacity>
 
@@ -129,91 +116,3 @@ export function BrandSelect({
   );
 }
 
-const styles = StyleSheet.create({
-  trigger: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.sm + spacing.xs,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    maxWidth: 130,
-  },
-
-  triggerActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-
-  triggerText: {
-    ...typography.body,
-    fontSize: 13,
-    color: colors.grayDark,
-    fontWeight: '600',
-    flexShrink: 1,
-  },
-
-  triggerTextActive: {
-    color: colors.onPrimary,
-  },
-
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(26,26,26,0.4)',
-    justifyContent: 'flex-end',
-  },
-
-  sheet: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
-    paddingTop: spacing.sm,
-    paddingHorizontal: spacing.md,
-    maxHeight: '60%',
-  },
-
-  handle: {
-    alignSelf: 'center',
-    width: 36,
-    height: 4,
-    borderRadius: radius.pill,
-    backgroundColor: colors.border,
-    marginBottom: spacing.sm,
-  },
-
-  sheetTitle: {
-    ...typography.subtitle,
-    fontWeight: '700',
-    color: colors.black,
-    marginBottom: spacing.xs,
-  },
-
-  sheetList: {
-    flexGrow: 0,
-  },
-
-  separator: {
-    height: 1,
-    backgroundColor: colors.border,
-  },
-
-  option: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.sm + spacing.xs,
-  },
-
-  optionText: {
-    ...typography.body,
-    color: colors.black,
-  },
-
-  optionTextSelected: {
-    color: colors.primaryDark,
-    fontWeight: '700',
-  },
-});

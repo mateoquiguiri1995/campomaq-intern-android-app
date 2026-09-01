@@ -20,9 +20,12 @@ function resolveImageUrl(path: string): string {
  * Convierte un producto del backend
  * al modelo utilizado por la aplicación.
  */
-export function mapApiProduct(api: ApiProduct): Product {
+export function mapApiProduct(api: ApiProduct, stockQty: number): Product {
   return {
-    id: String(api.product_id),
+    // product_code es el identificador estable del catálogo y el que usa
+    // /stock. Usarlo también como id evita colisiones si product_id viene
+    // repetido o no está disponible en una respuesta del backend.
+    id: api.product_code,
 
     code: api.product_code,
 
@@ -56,9 +59,10 @@ export function mapApiProduct(api: ApiProduct): Product {
     priceB: api.price_card,
     priceC: api.price_credit,
 
-    // Temporal hasta que el backend los envíe.
-    stockQty: api.stock ?? 0,
+    stockQty,
 
     marginPct: api.margin,
+
+    discount: api.discount,
   };
 }

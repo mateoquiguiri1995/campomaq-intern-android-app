@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { StyleSheet, Text, View } from 'react-native';
-
+import { styles } from '@/theme/styles/src_features_catalog_components_ProductDetail_index';
 import { Badge } from '@/components/common/Badge';
 import { colors } from '@/theme/colors';
 import { radius, spacing } from '@/theme/spacing';
@@ -79,69 +79,3 @@ export function ProductDetail({ product }: ProductDetailProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    gap: spacing.sm,
-  },
-
-  placeholderWrapper: {
-    height: 260,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  placeholderImage: {
-    width: '60%',
-    height: '60%',
-  },
-
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: spacing.sm,
-  },
-
-  code: {
-    ...typography.caption,
-    color: colors.gray,
-    fontWeight: '600',
-  },
-
-  name: {
-    ...typography.title,
-    fontSize: 20,
-    color: colors.black,
-  },
-
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-
-  brandLogo: {
-    width: 20,
-    height: 20,
-  },
-
-  brand: {
-    ...typography.body,
-    color: colors.grayDark,
-    fontWeight: '600',
-  },
-
-  category: {
-    ...typography.body,
-    color: colors.gray,
-  },
-
-  sectionTitle: {
-    ...typography.subtitle,
-    fontWeight: '700',
-    color: colors.black,
-    marginTop: spacing.sm,
-  },
-});

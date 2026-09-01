@@ -1,33 +1,88 @@
 import { Ionicons } from '@expo/vector-icons';
-import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useMemo, useState } from 'react';
+import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-import { AppHeader } from '@/components/common/AppHeader';
+import { Button } from '@/components/common/Button';
 import { ScreenContainer } from '@/components/common/ScreenContainer';
 import { ClientList } from '@/features/clients/components/ClientList';
 import { useClients } from '@/features/clients/hooks/useClients';
+import type { Client } from '@/features/clients/types';
+import { useQuoteBuilder } from '@/features/quotes/QuoteBuilderProvider';
+import { useSellerDashboard } from '@/features/sellers/SellerProvider';
 import { colors } from '@/theme/colors';
-import { radius, spacing } from '@/theme/spacing';
+import { formatCurrency } from '@/utils/currency';
 
 /** Pestaña Clientes. */
 export default function ClientsScreen() {
+  const router = useRouter();
+  const [clientFilter, setClientFilter] = useState<ClientFilter>('Todos');
+  const { resetBuilder } = useQuoteBuilder();
+  const { seller } = useSellerDashboard();
+  const featuredClient = seller?.topClients[0];
   const {
     clients,
     loading,
     searchLoading,
     loadingMore,
     error,
-    hasClients,
     hasMore,
-    hasActiveFilters,
+    hasActiveFilters: hasSearchFilter,
     search,
     setSearch,
     loadMore,
+    refresh,
+    refreshing,
   } = useClients();
+
+
+
+  const filteredClients = useMemo(() => {
+    const availableClients = clients.filter(
+      (client) => client.recencyStatus !== 'Inactive' && client.frequencyClassification !== 'Inactive'
+    );
+    if (clientFilter === 'Todos') return availableClients;
+    if (clientFilter === 'Activo') return availableClients.filter((client) => client.recencyStatus === 'Active');
+    const frequencyByFilter: Record<Exclude<ClientFilter, 'Todos' | 'Activo'>, string> = {
+      'Muy recurrente': 'Highly recurrent',
+      Recurrente: 'Recurrent',
+      Ocasional: 'Occasional',
+      'Una vez': 'One-time',
+    };
+    return availableClients.filter((client) => client.frequencyClassification === frequencyByFilter[clientFilter]);
+  }, [clients, clientFilter]);
+
+  const hasActiveFilters = hasSearchFilter || clientFilter !== 'Todos';
+
+  function openClientDetail(client: Client) {
+    router.push({
+      pathname: '/client/[id]',
+      params: { id: client.id, data: JSON.stringify(client) },
+    });
+  }
+
+  function handleNewQuote() {
+    resetBuilder();
+    router.push('/quotes/select-client');
+  }
 
   if (loading) {
     return (
       <ScreenContainer>
-        <AppHeader title="Clientes" subtitle="Cartera de clientes" />
+        <View style={styles.headerRow}>
+          <Text style={styles.headerTitle}>Clientes</Text>
+        </View>
+
+        {featuredClient && (
+          <View style={styles.featuredClient}>
+            <Ionicons name="trophy-outline" size={18} color={colors.primaryDark} />
+            <View style={styles.featuredClientText}>
+              <Text style={styles.featuredClientLabel}>CLIENTE DESTACADO</Text>
+              <Text style={styles.featuredClientName} numberOfLines={1}>{featuredClient.clientName}</Text>
+            </View>
+            <Text style={styles.featuredClientValue}>{formatCurrency(featuredClient.totalValue)}</Text>
+          </View>
+        )}
 
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.primaryDark} />
@@ -40,11 +95,14 @@ export default function ClientsScreen() {
   if (error) {
     return (
       <ScreenContainer>
-        <AppHeader title="Clientes" subtitle="Cartera de clientes" />
+        <View style={styles.headerRow}>
+          <Text style={styles.headerTitle}>Clientes</Text>
+        </View>
 
         <View style={styles.center}>
           <Text style={styles.errorTitle}>No pudimos cargar los clientes</Text>
           <Text style={styles.message}>{error}</Text>
+          <Button label="Reintentar" variant="ghost" onPress={refresh} />
         </View>
       </ScreenContainer>
     );
@@ -52,96 +110,106 @@ export default function ClientsScreen() {
 
   return (
     <ScreenContainer scroll={false}>
-      <AppHeader title="Clientes" subtitle="Cartera de clientes" />
+      <View style={styles.topGroup}>
+        <View style={styles.headerRow}>
+          <Text style={styles.headerTitle}>Clientes</Text>
+        </View>
 
-      <View style={styles.searchRow}>
-        {searchLoading ? (
-          <ActivityIndicator size="small" color={colors.gray} style={styles.searchIcon} />
-        ) : (
-          <Ionicons name="search" size={18} color={colors.gray} style={styles.searchIcon} />
-        )}
+        <View style={styles.searchRow}>
+          {searchLoading ? (
+            <ActivityIndicator size="small" color={colors.gray} style={styles.searchIcon} />
+          ) : (
+            <Ionicons name="search" size={18} color={colors.gray} style={styles.searchIcon} />
+          )}
 
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Buscar cliente..."
-          placeholderTextColor={colors.gray}
-          value={search}
-          onChangeText={setSearch}
-          returnKeyType="search"
-        />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar cliente por nombre"
+            placeholderTextColor={colors.gray}
+            value={search}
+            onChangeText={setSearch}
+            returnKeyType="search"
+          />
 
-        {search.length > 0 && (
-          <TouchableOpacity style={styles.clearIcon} onPress={() => setSearch('')} hitSlop={8}>
-            <Ionicons name="close-circle" size={18} color={colors.gray} />
-          </TouchableOpacity>
+          {search.length > 0 && (
+            <TouchableOpacity style={styles.clearIcon} onPress={() => setSearch('')} hitSlop={8}>
+              <Ionicons name="close-circle" size={18} color={colors.gray} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <View style={styles.filtersWrapper}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filtersScroll}
+          >
+            {CLIENT_FILTERS.map((filter) => {
+              const isActive = clientFilter === filter;
+              const iconName = filter === 'Todos' ? 'list' : filter === 'Activo' ? 'pulse' : 'repeat';
+              return (
+                <TouchableOpacity
+                  key={filter}
+                  style={[styles.filterChip, isActive && styles.filterChipActive]}
+                  onPress={() => setClientFilter(filter)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={iconName}
+                    size={14}
+                    color={isActive ? '#FFFFFF' : '#666666'}
+                  />
+                  <Text style={[styles.filterLabel, isActive && styles.filterLabelActive]}>
+                    {filter}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {filteredClients.length > 0 && (
+          <Text style={styles.countText}>
+            {filteredClients.length} {filteredClients.length === 1 ? 'cliente asignado' : 'clientes asignados'} a tu ruta
+          </Text>
         )}
       </View>
 
-      {!hasClients && !hasActiveFilters ? (
+      {filteredClients.length === 0 && !hasActiveFilters ? (
         <View style={styles.center}>
           <Text style={styles.message}>No existen clientes disponibles.</Text>
         </View>
       ) : (
-        <ClientList
-          clients={clients}
-          hasMore={hasMore}
-          loadingMore={loadingMore}
-          onLoadMore={loadMore}
-          hasActiveFilters={hasActiveFilters}
-          onClearFilters={() => setSearch('')}
-          searching={searchLoading}
-        />
+        <View style={inlineLayoutStyles.clientsFlexFill}>
+          <ClientList
+            clients={filteredClients}
+            hasMore={hasMore}
+            loadingMore={loadingMore}
+            onLoadMore={loadMore}
+            hasActiveFilters={hasActiveFilters}
+            onClearFilters={() => {
+              setSearch('');
+              setClientFilter('Todos');
+            }}
+            searching={searchLoading}
+            onPressClient={openClientDetail}
+            refreshing={refreshing}
+            onRefresh={refresh}
+          />
+        </View>
       )}
+
+      <TouchableOpacity style={styles.fab} activeOpacity={0.7} onPress={handleNewQuote}>
+        <Ionicons name="add" size={28} color={colors.black} />
+      </TouchableOpacity>
     </ScreenContainer>
   );
 }
 
-const shadow = {
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 1 },
-  shadowOpacity: 0.06,
-  shadowRadius: 3,
-  elevation: 2,
-};
+type ClientFilter = 'Todos' | 'Activo' | 'Muy recurrente' | 'Recurrente' | 'Ocasional' | 'Una vez';
 
-const styles = StyleSheet.create({
-  searchRow: {
-    justifyContent: 'center',
-  },
-  searchIcon: {
-    position: 'absolute',
-    left: spacing.sm + spacing.xs,
-    zIndex: 1,
-  },
-  searchInput: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingLeft: spacing.xl + spacing.xs,
-    paddingRight: spacing.xl,
-    paddingVertical: spacing.sm + spacing.xs,
-    fontSize: 15,
-    color: colors.black,
-    ...shadow,
-  },
-  clearIcon: {
-    position: 'absolute',
-    right: spacing.sm + spacing.xs,
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  message: {
-    marginTop: spacing.md,
-    textAlign: 'center',
-    color: colors.grayDark,
-  },
-  errorTitle: {
-    fontWeight: '700',
-    fontSize: 18,
-    color: '#D32F2F',
-  },
-});
+const CLIENT_FILTERS: ClientFilter[] = ['Todos', 'Activo', 'Muy recurrente', 'Recurrente', 'Una vez'];
+
+import { styles } from '@/theme/styles/app_tabs_clients';
+import { inlineLayoutStyles } from '@/theme/styles/inlineLayout';
+

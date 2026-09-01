@@ -40,20 +40,4 @@ export function Badge({
   );
 }
 
-const styles = StyleSheet.create({
-  badge: {
-    paddingHorizontal: spacing.sm,
-
-    paddingVertical: 4,
-
-    borderRadius: radius.pill,
-
-    alignSelf: 'flex-start',
-  },
-
-  text: {
-    ...typography.caption,
-
-    fontWeight: '600',
-  },
-});
+import { styles } from '@/theme/styles/src_components_common_Badge';

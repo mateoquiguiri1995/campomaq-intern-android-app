@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text } from 'react-native';
-
+import { styles } from '@/theme/styles/src_features_catalog_components_CategoryChip';
 import { colors } from '@/theme/colors';
 import { radius, spacing } from '@/theme/spacing';
 import { typography } from '@/theme/typography';
@@ -22,27 +22,3 @@ export function CategoryChip({ label, selected, onPress }: CategoryChipProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  chip: {
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.sm + spacing.xs,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  chipSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  label: {
-    ...typography.body,
-    fontSize: 13,
-    color: colors.grayDark,
-    fontWeight: '500',
-  },
-  labelSelected: {
-    color: colors.onPrimary,
-    fontWeight: '600',
-  },
-});

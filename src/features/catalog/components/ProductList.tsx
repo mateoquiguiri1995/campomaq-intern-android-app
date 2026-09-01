@@ -1,12 +1,13 @@
 import {
   ActivityIndicator,
   FlatList,
+  RefreshControl,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-
+import { styles } from '@/theme/styles/src_features_catalog_components_ProductList';
 import { colors } from '@/theme/colors';
 import { radius, spacing } from '@/theme/spacing';
 import { typography } from '@/theme/typography';
@@ -30,6 +31,10 @@ interface ProductListProps {
 
   /** Búsqueda en curso: evita mostrar "sin resultados" mientras aún no llega la respuesta. */
   searching?: boolean;
+
+  refreshing?: boolean;
+
+  onRefresh?: () => void;
 }
 
 export function ProductList({
@@ -40,26 +45,23 @@ export function ProductList({
   onClearFilters,
   onPressProduct,
   searching,
+  refreshing = false,
+  onRefresh,
 }: ProductListProps) {
   return (
     <FlatList
       style={styles.list}
       contentContainerStyle={styles.listContent}
       data={products}
-      keyExtractor={(item) => item.id}
-
+      keyExtractor={(item) => item.code}
       renderItem={({ item }) => (
         <ProductCard product={item} onPressDetails={onPressProduct} />
       )}
-
-      ItemSeparatorComponent={() => (
-        <View style={styles.separator} />
-      )}
-
+      refreshControl={
+        onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primaryDark]} /> : undefined
+      }
       onEndReached={() => {
-        if (hasMore) {
-          onLoadMore();
-        }
+        if (hasMore) onLoadMore();
       }}
 
       onEndReachedThreshold={0.5}
@@ -113,47 +115,3 @@ export function ProductList({
   );
 }
 
-const styles = StyleSheet.create({
-  list: {
-    flex: 1,
-  },
-
-  listContent: {
-    paddingBottom: spacing.md,
-  },
-
-  separator: {
-    height: spacing.md,
-  },
-
-  footer: {
-    textAlign: 'center',
-    color: colors.grayDark,
-    paddingVertical: spacing.lg,
-  },
-
-  empty: {
-    alignItems: 'center',
-    paddingVertical: spacing.xl,
-  },
-
-  emptyText: {
-    color: colors.grayDark,
-    textAlign: 'center',
-    paddingHorizontal: spacing.lg,
-  },
-
-  clearButton: {
-    marginTop: spacing.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.pill,
-    backgroundColor: colors.primary,
-  },
-
-  clearButtonText: {
-    ...typography.body,
-    color: colors.onPrimary,
-    fontWeight: '600',
-  },
-});

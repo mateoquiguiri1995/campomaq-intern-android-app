@@ -11,6 +11,43 @@ export interface Client {
   location?: string;
   /** Total histórico de compras en USD. Todavía no llega desde la API. */
   totalPurchases?: number;
-  /** Puntaje interno del cliente (ej. 1-5). Todavía no llega desde la API. */
-  score?: number;
+  /** Clasificación comercial. Todavía no llega desde la API. */
+  score?: ClientScore;
+  /** Indica si el cliente tiene crédito pendiente. Todavía no llega desde la API. */
+  hasPendingCredit?: boolean;
+  lastPurchaseDate?: string;
+  phoneSecondary?: string;
+  daysSinceLastPurchase?: number;
+  frequencyClassification?: string;
+  purchaseMonthsLast6Months?: number;
+  recencyStatus?: string;
+  salesCountLast6Months?: number;
+  recentInvoices?: ClientInvoice[];
+}
+
+export type ClientScore = 'A+' | 'A' | 'B';
+
+export type InvoiceStatus = 'paid' | 'pending';
+
+export interface ClientInvoice {
+  id: string;
+  invoiceNumber: number;
+  issuedAt: string;
+  code: string;
+  name: string;
+  itemCount: number;
+  paymentMethod: string;
+  status?: InvoiceStatus;
+  total: number;
+  isSalesNote?: boolean;
+}
+
+/** Información ampliada que se mostrará en la ficha del cliente. */
+export interface ClientDetail extends Client {
+  totalPurchases: number;
+  purchaseCount: number;
+  scoreLabel: string;
+  notes: string[];
+  invoices: ClientInvoice[];
+  contactName?: string;
 }
