@@ -1,4 +1,4 @@
-import { ApiError, apiGet } from '@/api/client';
+import { ApiError, apiGet, setApiAccessToken } from '@/api/client';
 import { supabase } from '@/lib/supabase';
 import * as secureStore from '@/utils/secureStore';
 import { Directory, File, Paths } from 'expo-file-system';
@@ -175,8 +175,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
     secureStore.deleteItemAsync(LEGACY_AVATAR_OVERRIDE_KEY);
 
     const { data } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      // Supabase executes this callback while holding its internal auth lock.
-      // Defer async work so loadProfile() can safely call getSession().
+      setApiAccessToken(newSession?.access_token ?? null);
+
+      // Keep the auth callback quick and do cache/profile work afterward.
       setTimeout(async () => {
         if (!isMounted) return;
         const version = ++authVersion.current;

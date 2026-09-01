@@ -8,6 +8,12 @@ export const API_BASE_URL =
 // 25s da margen para eso sin dejar al usuario esperando indefinidamente.
 const REQUEST_TIMEOUT_MS = 25000;
 
+let accessToken: string | null = null;
+
+export function setApiAccessToken(token: string | null): void {
+  accessToken = token;
+}
+
 export class ApiError extends Error {
   status: number;
 
@@ -17,10 +23,8 @@ export class ApiError extends Error {
   }
 }
 
-async function getAuthHeader(): Promise<Record<string, string>> {
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  return token ? { Authorization: `Bearer ${token}` } : {};
+function getAuthHeader(): Record<string, string> {
+  return accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
 }
 
 async function request<T>(
@@ -29,7 +33,7 @@ async function request<T>(
   isRetry = false
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
-  const authHeader = await getAuthHeader();
+  const authHeader = getAuthHeader();
 
   const config: RequestInit = {
     ...options,
@@ -64,8 +68,10 @@ async function request<T>(
   if (response.status === 401 && !isRetry) {
     const { data, error } = await supabase.auth.refreshSession();
     if (!error && data.session) {
+      setApiAccessToken(data.session.access_token);
       return request<T>(endpoint, options, true);
     }
+    setApiAccessToken(null);
     await supabase.auth.signOut();
     throw new ApiError(401, 'Sesión expirada.');
   }
