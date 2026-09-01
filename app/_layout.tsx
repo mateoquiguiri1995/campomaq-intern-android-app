@@ -135,21 +135,19 @@ function RootNavigator() {
     );
   }
 
-  if (!session) {
-    return (
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="login" />
-      </Stack>
-    );
-  }
-
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="product/[id]" />
-      <Stack.Screen name="client/[id]" />
-      <Stack.Screen name="client/invoice/[invoiceNumber]" />
-      <Stack.Screen name="quotes" />
+      <Stack.Protected guard={!session}>
+        <Stack.Screen name="login" />
+      </Stack.Protected>
+
+      <Stack.Protected guard={!!session}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="product/[id]" />
+        <Stack.Screen name="client/[id]" />
+        <Stack.Screen name="client/invoice/[invoiceNumber]" />
+        <Stack.Screen name="quotes" />
+      </Stack.Protected>
     </Stack>
   );
 }
