@@ -174,84 +174,88 @@ export function AuthProvider({ children }: PropsWithChildren) {
     let isMounted = true;
     secureStore.deleteItemAsync(LEGACY_AVATAR_OVERRIDE_KEY);
 
-    const { data } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
-      if (!isMounted) return;
-      const version = ++authVersion.current;
+    const { data } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      // Supabase executes this callback while holding its internal auth lock.
+      // Defer async work so loadProfile() can safely call getSession().
+      setTimeout(async () => {
+        if (!isMounted) return;
+        const version = ++authVersion.current;
 
-      if (!newSession) {
-        setHasSession(false);
-        setSession(null);
-        setProfileError(null);
-        setIsLoading(false);
-        return;
-      }
-
-      const userId = newSession.user.id;
-
-      // Recuperación instantánea de perfil y avatar desde disco local
-      const [cachedProfileJson, rawAvatarOverride] = await Promise.all([
-        secureStore.getItemAsync(userProfileCacheKey(userId)),
-        secureStore.getItemAsync(avatarOverrideKey(userId)),
-      ]);
-      const avatarOverride = await resolveValidAvatarUri(userId, rawAvatarOverride);
-
-      let cachedName = '';
-      let cachedRole: 'vendedor' = 'vendedor';
-      let cachedAvatarUrl: string | undefined = undefined;
-
-      if (cachedProfileJson) {
-        try {
-          const parsed = JSON.parse(cachedProfileJson) as MeResponse;
-          cachedName = parsed.name;
-          cachedRole = parsed.role;
-          cachedAvatarUrl = parsed.avatarUrl;
-        } catch {}
-      }
-
-      if (!cachedName) {
-        const metadataName =
-          (newSession.user.user_metadata?.name as string | undefined) ||
-          (newSession.user.user_metadata?.full_name as string | undefined);
-        if (metadataName) {
-          cachedName = metadataName;
-        } else if (newSession.user.email) {
-          const prefix = newSession.user.email.split('@')[0];
-          cachedName = prefix.charAt(0).toUpperCase() + prefix.slice(1);
-        } else {
-          cachedName = 'Vendedor';
+        if (!newSession) {
+          setHasSession(false);
+          setSession(null);
+          setProfileError(null);
+          setIsLoading(false);
+          return;
         }
-      }
 
-      const initialUser = {
-        id: userId,
-        name: cachedName,
-        email: newSession.user.email ?? '',
-        role: cachedRole,
-        avatar: avatarOverride ?? cachedAvatarUrl,
-      };
+        const userId = newSession.user.id;
 
-      if (!cachedProfileJson) {
-        await secureStore.setItemAsync(
-          userProfileCacheKey(userId),
-          JSON.stringify({
-            name: initialUser.name,
-            email: initialUser.email,
-            role: initialUser.role,
-            avatarUrl: initialUser.avatar,
-          })
-        );
-      }
+        // Recuperación instantánea de perfil y avatar desde disco local
+        const [cachedProfileJson, rawAvatarOverride] = await Promise.all([
+          secureStore.getItemAsync(userProfileCacheKey(userId)),
+          secureStore.getItemAsync(avatarOverrideKey(userId)),
+        ]);
+        const avatarOverride = await resolveValidAvatarUri(userId, rawAvatarOverride);
 
-      setSession({
-        user: initialUser,
-        token: newSession.access_token,
-      });
+        let cachedName = '';
+        let cachedRole: 'vendedor' = 'vendedor';
+        let cachedAvatarUrl: string | undefined = undefined;
 
-      setHasSession(true);
-      setProfileError(null);
-      setIsLoading(true);
-      await loadProfile(newSession.access_token, userId, version);
-      if (isMounted && authVersion.current === version) setIsLoading(false);
+        if (cachedProfileJson) {
+          try {
+            const parsed = JSON.parse(cachedProfileJson) as MeResponse;
+            cachedName = parsed.name;
+            cachedRole = parsed.role;
+            cachedAvatarUrl = parsed.avatarUrl;
+          } catch {}
+        }
+
+        if (!cachedName) {
+          const metadataName =
+            (newSession.user.user_metadata?.name as string | undefined) ||
+            (newSession.user.user_metadata?.full_name as string | undefined);
+          if (metadataName) {
+            cachedName = metadataName;
+          } else if (newSession.user.email) {
+            const prefix = newSession.user.email.split('@')[0];
+            cachedName = prefix.charAt(0).toUpperCase() + prefix.slice(1);
+          } else {
+            cachedName = 'Vendedor';
+          }
+        }
+
+        const initialUser = {
+          id: userId,
+          name: cachedName,
+          email: newSession.user.email ?? '',
+          role: cachedRole,
+          avatar: avatarOverride ?? cachedAvatarUrl,
+        };
+
+        if (!cachedProfileJson) {
+          await secureStore.setItemAsync(
+            userProfileCacheKey(userId),
+            JSON.stringify({
+              name: initialUser.name,
+              email: initialUser.email,
+              role: initialUser.role,
+              avatarUrl: initialUser.avatar,
+            })
+          );
+        }
+
+        setSession({
+          user: initialUser,
+          token: newSession.access_token,
+        });
+
+        setHasSession(true);
+        setProfileError(null);
+        setIsLoading(true);
+        await loadProfile(newSession.access_token, userId, version);
+        if (isMounted && authVersion.current === version) setIsLoading(false);
+      }, 0);
     });
 
     return () => {
