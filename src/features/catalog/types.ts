@@ -28,6 +28,9 @@ export interface Product {
   /** Último costo de compra (endpoint /product-commercial-data), base para calcular la utilidad. */
   lastCost?: number;
 
+  /** Costo promedio de compra (endpoint /product-commercial-data). */
+  averageCost?: number;
+
   stockQty: number;
 
   imageUrl?: string;

@@ -245,6 +245,23 @@ export function QuoteItemEditorModal({
                 );
               })}
             </View>
+
+            {(product.lastCost != null || product.averageCost != null) && (
+              <View style={styles.costInfoRow}>
+                {product.lastCost != null && (
+                  <View style={styles.costPill}>
+                    <Text style={styles.costPillLabel}>Últ. costo</Text>
+                    <Text style={styles.costPillValue}>{formatCurrency(product.lastCost)}</Text>
+                  </View>
+                )}
+                {product.averageCost != null && (
+                  <View style={styles.costPill}>
+                    <Text style={styles.costPillLabel}>Costo prom.</Text>
+                    <Text style={styles.costPillValue}>{formatCurrency(product.averageCost)}</Text>
+                  </View>
+                )}
+              </View>
+            )}
           </View>
 
           <View style={styles.section}>

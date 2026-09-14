@@ -1,7 +1,7 @@
-import { Platform, StyleSheet } from 'react-native';
 import { colors } from '@/theme/colors';
 import { radius, spacing } from '@/theme/spacing';
 import { typography } from '@/theme/typography';
+import { Platform, StyleSheet } from 'react-native';
 
 /**
  * Estilos centralizados para $file.
@@ -143,6 +143,36 @@ export const styles = StyleSheet.create({
   },
   utilityNegative: {
     color: colors.danger,
+  },
+  // Fila compacta de costos (último/promedio) bajo las cards de precio: dos
+  // mini "pills" que comparten el mismo lenguaje visual que discountModeToggle
+  // y summaryCard (fondo tenue, radios suaves), sin ocupar una sección propia.
+  costInfoRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  costPill: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.background,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    gap: 4,
+  },
+  costPillLabel: {
+    ...typography.caption,
+    fontSize: 11,
+    color: colors.grayDark,
+    fontWeight: '600',
+  },
+  costPillValue: {
+    ...typography.caption,
+    fontSize: 12.5,
+    color: colors.black,
+    fontWeight: '700',
   },
   quantityRow: {
     flexDirection: 'row',

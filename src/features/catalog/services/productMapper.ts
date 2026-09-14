@@ -66,6 +66,7 @@ export function mapApiProduct(api: ApiProduct, commercial: ApiProductCommercialD
     marginPct: api.margin,
 
     lastCost: commercial.last_cost,
+    averageCost: commercial.average_cost,
 
     discount: api.discount,
     iva: Boolean(commercial.iva),
