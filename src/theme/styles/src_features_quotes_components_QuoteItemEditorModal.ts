@@ -144,34 +144,19 @@ export const styles = StyleSheet.create({
   utilityNegative: {
     color: colors.danger,
   },
-  // Fila compacta de costos (último/promedio) bajo las cards de precio: dos
-  // mini "pills" que comparten el mismo lenguaje visual que discountModeToggle
-  // y summaryCard (fondo tenue, radios suaves), sin ocupar una sección propia.
+  // Fila compacta de costos (último/promedio) bajo las cards de precio: solo
+  // texto pequeño, sin card ni padding propio, para no añadir altura extra.
   costInfoRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: spacing.md,
   },
-  costPill: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.background,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-    gap: 4,
-  },
-  costPillLabel: {
+  costInfoText: {
     ...typography.caption,
-    fontSize: 11,
+    fontSize: 11.5,
+    color: colors.gray,
+    },
+  costInfoValue: {
     color: colors.grayDark,
-    fontWeight: '600',
-  },
-  costPillValue: {
-    ...typography.caption,
-    fontSize: 12.5,
-    color: colors.black,
     fontWeight: '700',
   },
   quantityRow: {

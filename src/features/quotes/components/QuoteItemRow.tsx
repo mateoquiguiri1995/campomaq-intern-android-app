@@ -13,6 +13,7 @@ const TIER_LABELS: Record<QuoteItem['priceTier'], string> = {
   A: 'Contado',
   B: 'Tarjeta',
   C: 'Crédito',
+  CUSTOM: 'Personalizado',
 };
 
 interface QuoteItemRowProps {
@@ -22,7 +23,7 @@ interface QuoteItemRowProps {
 }
 
 export function QuoteItemRow({ item, onEdit, onRemove }: QuoteItemRowProps) {
-  const unitPrice = getUnitPrice(item.product, item.priceTier);
+  const unitPrice = getUnitPrice(item.product, item.priceTier, item.customPrice);
 
   return (
     <Pressable style={styles.card} onPress={onEdit}>

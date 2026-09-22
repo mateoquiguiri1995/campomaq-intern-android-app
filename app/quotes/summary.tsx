@@ -8,7 +8,7 @@ import type { Product } from '@/features/catalog/types';
 import { QuoteItemEditorModal } from '@/features/quotes/components/QuoteItemEditorModal';
 import { QuoteTermsModal } from '@/features/quotes/components/QuoteTermsModal';
 import { useQuoteBuilder } from '@/features/quotes/QuoteBuilderProvider';
-import { getQuoteTotals, getLineDiscount, getLineTotal, getUnitPrice } from '@/features/quotes/services/quoteCalculations';
+import { getQuoteTotals, getLineDiscount, getLineTotal, getUnitPrice, getUtilityPct, getUtilityLevel, round2 } from '@/features/quotes/services/quoteCalculations';
 import { getClientDisplayName, getClientDisplaySubtitle } from '@/features/quotes/services/quoteClient';
 import { shareQuotePdf } from '@/features/quotes/services/quotePdf';
 import { deleteQuote } from '@/features/quotes/services/quoteService';
@@ -291,15 +291,61 @@ export default function QuoteSummaryScreen() {
                 </View>
 
                 <View style={styles.productCardBottom}>
-                  <Text style={styles.productUnitSubtitle}>
-                    {formatCurrency(getUnitPrice(item.product, item.priceTier))} c/u
-                    {item.discountAmount
-                      ? ` · Desc. ${formatCurrency(getLineDiscount(item))}`
-                      : item.discountPct
-                        ? ` · Desc. ${item.discountPct}%`
-                        : ''}
-                    {item.product.iva ? ' · IVA 15%' : ' · Sin IVA'}
-                  </Text>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={styles.productUnitSubtitle}>
+                      {formatCurrency(getUnitPrice(item.product, item.priceTier, item.customPrice))} c/u
+                      {item.priceTier === 'CUSTOM' ? ' · Personalizado' : ''}
+                      {item.discountAmount
+                        ? ` · Desc. ${formatCurrency(getLineDiscount(item))}`
+                        : item.discountPct
+                          ? ` · Desc. ${item.discountPct}%`
+                          : ''}
+                      {item.product.iva ? ' · IVA 15%' : ' · Sin IVA'}
+                    </Text>
+                    {(() => {
+                      const lineTot = getLineTotal(item);
+                      const netUnit = round2(lineTot / Math.max(1, item.quantity));
+                      const utPct = getUtilityPct(netUnit, item.product.lastCost);
+                      if (utPct == null) return null;
+                      const lvl = getUtilityLevel(utPct);
+                      const isLow = lvl === 'low';
+                      const isMed = lvl === 'medium';
+                      return (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                          <View
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              gap: 3,
+                              paddingHorizontal: 6,
+                              paddingVertical: 1.5,
+                              borderRadius: 10,
+                              backgroundColor: isLow
+                                ? 'rgba(214, 69, 69, 0.12)'
+                                : isMed
+                                  ? 'rgba(230, 126, 34, 0.12)'
+                                  : 'rgba(46, 158, 79, 0.12)',
+                            }}
+                          >
+                            <Ionicons
+                              name={isLow ? 'trending-down' : 'trending-up'}
+                              size={11}
+                              color={isLow ? colors.danger : isMed ? colors.orange : colors.success}
+                            />
+                            <Text
+                              style={{
+                                fontSize: 10,
+                                fontWeight: '700',
+                                color: isLow ? colors.danger : isMed ? colors.orange : colors.success,
+                              }}
+                            >
+                              Utilidad {utPct.toFixed(1)}%
+                            </Text>
+                          </View>
+                        </View>
+                      );
+                    })()}
+                  </View>
                   {isEditable && <View style={styles.counterRow}>
                     <TouchableOpacity
                       style={styles.counterBtnMinus}

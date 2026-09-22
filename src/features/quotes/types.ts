@@ -1,19 +1,20 @@
 import type { Product } from '../catalog/types';
 import type { Client } from '../clients/types';
 
-/** Qué lista de precios se aplica a una línea de la cotización. */
-export type PriceTier = 'A' | 'B' | 'C';
+/** Qué lista de precios se aplica a una línea de la cotización ('CUSTOM' para precio personalizado). */
+export type PriceTier = 'A' | 'B' | 'C' | 'CUSTOM';
 
 export interface QuoteItem {
   product: Product;
   quantity: number;
   priceTier: PriceTier;
+  /** Precio unitario personalizado ingresado por el vendedor cuando priceTier === 'CUSTOM'. */
+  customPrice?: number;
   /** Descuento opcional en porcentaje (0-100). */
   discountPct?: number;
   /** Descuento opcional en dólares aplicado al total de esta línea. */
   discountAmount?: number;
 }
-
 /**
  * Datos mínimos de un cliente escrito a mano solo para esta cotización.
  * Vive únicamente dentro del documento local: nunca se sube al backend.

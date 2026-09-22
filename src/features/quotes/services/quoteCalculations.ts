@@ -9,10 +9,30 @@ export function round2(val: number): number {
   return Math.round((val + Number.EPSILON) * 100) / 100;
 }
 
-export function getUnitPrice(product: Product, tier: PriceTier): number {
+export function getUnitPrice(product: Product, tier: PriceTier, customPrice?: number): number {
+  if (tier === 'CUSTOM' && customPrice != null && customPrice > 0) {
+    return round2(customPrice);
+  }
   if (tier === 'A') return product.priceA;
   if (tier === 'B') return product.priceB;
-  return product.priceC;
+  if (tier === 'C') return product.priceC;
+  return product.priceA;
+}
+
+export type UtilityLevel = 'low' | 'medium' | 'high' | 'none';
+
+/**
+ * Categoriza la utilidad en los 3 rangos del negocio:
+ * - low (rojo): <= 10%
+ * - medium (naranja): > 10% y <= 30%
+ * - high (verde): > 30%
+ * - none (neutro): sin costo disponible
+ */
+export function getUtilityLevel(utilityPct: number | null): UtilityLevel {
+  if (utilityPct == null) return 'none';
+  if (utilityPct <= 10) return 'low';
+  if (utilityPct <= 30) return 'medium';
+  return 'high';
 }
 
 /**
@@ -26,7 +46,7 @@ export function getUtilityPct(unitPrice: number, lastCost: number | undefined): 
 }
 
 export function getLineGross(item: QuoteItem): number {
-  return round2(getUnitPrice(item.product, item.priceTier) * item.quantity);
+  return round2(getUnitPrice(item.product, item.priceTier, item.customPrice) * item.quantity);
 }
 
 /**

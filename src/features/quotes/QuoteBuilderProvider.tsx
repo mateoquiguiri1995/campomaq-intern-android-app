@@ -25,6 +25,7 @@ function generateId(): string {
 interface AddItemOptions {
   quantity: number;
   priceTier: PriceTier;
+  customPrice?: number;
   discountPct?: number;
   discountAmount?: number;
 }
@@ -107,6 +108,7 @@ export function QuoteBuilderProvider({ children, userId }: QuoteBuilderProviderP
         product,
         quantity: options.quantity,
         priceTier: options.priceTier,
+        customPrice: options.customPrice,
         discountPct: options.discountPct,
         discountAmount: options.discountAmount,
       },

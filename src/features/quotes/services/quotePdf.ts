@@ -46,7 +46,7 @@ function buildHtml(quote: Quote, seller?: User): string {
   // Generación de filas de productos
   const rows = quote.items
     .map((item) => {
-      const unitPrice = getUnitPrice(item.product, item.priceTier);
+      const unitPrice = getUnitPrice(item.product, item.priceTier, item.customPrice);
       const discountText = item.discountAmount
         ? formatCurrency(getLineDiscount(item))
         : item.discountPct
@@ -76,12 +76,6 @@ function buildHtml(quote: Quote, seller?: User): string {
       const prodDesc = item.product.description 
         ? escapeHtml(cleanAndTruncateDescription(item.product.description, 140))
         : '';
-      const stockWarning =
-        item.product.stockQty <= 0
-          ? 'SIN STOCK — confirmar disponibilidad'
-          : item.quantity > item.product.stockQty
-            ? `STOCK INSUFICIENTE (${item.product.stockQty} disponible)`
-            : '';
 
       return `
         <tr>
@@ -92,7 +86,6 @@ function buildHtml(quote: Quote, seller?: User): string {
               <span><strong>Cód:</strong> ${prodCode}</span> &nbsp;&middot;&nbsp; 
               <span><strong>Marca:</strong> ${prodBrand}</span>
             </div>
-            ${stockWarning ? `<div class="stock-warning">${stockWarning}</div>` : ''}
             ${prodDesc ? `<div class="prod-desc">${prodDesc}</div>` : ''}
           </td>
           <td class="col-center num-value">${item.quantity}</td>
@@ -135,7 +128,8 @@ function buildHtml(quote: Quote, seller?: User): string {
     `;
   }
 
-  // Caja de información del Vendedor
+  // Caja de información del Vendedor (comentada temporalmente mientras la app está en fase de prueba)
+  /*
   let sellerHtml = '';
   if (seller) {
     const sellerName = seller.name || 'Asesor Comercial';
@@ -165,6 +159,8 @@ function buildHtml(quote: Quote, seller?: User): string {
       </div>
     `;
   }
+  */
+  const sellerHtml = '';
 
   return `
     <html>
@@ -217,6 +213,7 @@ function buildHtml(quote: Quote, seller?: User): string {
           .meta-value { color: #1a1a1a; text-align: left; }
           
           .info-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px; }
+          .info-container.info-single { grid-template-columns: 1fr; }
           .info-box { background-color: #fcfcfc; border-radius: 10px; padding: 12px 15px; border: 1px solid #e5e5e5; }
           .info-box-title { font-size: 10px; font-weight: 800; color: #1a1a1a; text-transform: uppercase; border-bottom: 2px solid #EBD600; padding-bottom: 4px; margin-bottom: 8px; letter-spacing: 0.5px; }
           .info-grid { display: grid; grid-template-columns: auto 1fr; gap: 5px 8px; font-size: 10px; }
@@ -326,7 +323,7 @@ function buildHtml(quote: Quote, seller?: User): string {
           <div style="width: 100%; height: 4px; background-color: #EBD600; margin-bottom: 20px; border-radius: 2px;"></div>
 
           <!-- Client & Seller Info -->
-          <section class="info-container">
+          <section class="info-container ${sellerHtml ? '' : 'info-single'}">
             ${clientHtml}
             ${sellerHtml}
           </section>

@@ -19,6 +19,7 @@ export const colors = {
   // Estados (usados por ejemplo en etiquetas de stock)
   success: '#2E9E4F',
   warning: '#f5b810',
+  orange: '#E67E22',
   danger: '#D64545',
   stockd: '#9df391',
   // Bordes

@@ -9,7 +9,7 @@ import { radius, spacing } from '@/theme/spacing';
 import { typography } from '@/theme/typography';
 import { formatCurrency } from '@/utils/currency';
 
-import { getUnitPrice, getUtilityPct, round2 } from '../services/quoteCalculations';
+import { getUnitPrice, getUtilityPct, getUtilityLevel, round2 } from '../services/quoteCalculations';
 import type { PriceTier } from '../types';
 
 const TIERS: { key: PriceTier; label: string }[] = [
@@ -23,6 +23,7 @@ type DiscountMode = 'pct' | 'amount';
 interface QuoteItemValues {
   quantity: number;
   priceTier: PriceTier;
+  customPrice?: number;
   discountPct?: number;
   discountAmount?: number;
 }
@@ -35,7 +36,7 @@ interface QuoteItemEditorModalProps {
   onConfirm: (values: QuoteItemValues) => void;
 }
 
-/** Modal para elegir cantidad, precio A/B/C y descuento antes de añadir/editar una línea. */
+/** Modal para elegir cantidad, precio A/B/C o personalizado y descuento antes de añadir/editar una línea. */
 export function QuoteItemEditorModal({
   visible,
   product,
@@ -45,13 +46,22 @@ export function QuoteItemEditorModal({
 }: QuoteItemEditorModalProps) {
   const [quantity, setQuantity] = useState('1');
   const [tier, setTier] = useState<PriceTier>('A');
+  const [customPriceInput, setCustomPriceInput] = useState('');
   const [discountMode, setDiscountMode] = useState<DiscountMode>('pct');
   const [discount, setDiscount] = useState('');
 
   useEffect(() => {
     if (visible) {
       setQuantity(String(initial?.quantity ?? 1));
-      setTier(initial?.priceTier ?? 'A');
+      const initialTier = initial?.priceTier ?? 'A';
+      setTier(initialTier);
+      if (initial?.customPrice != null) {
+        setCustomPriceInput(String(initial.customPrice));
+      } else if (product) {
+        setCustomPriceInput(String(getUnitPrice(product, 'A')));
+      } else {
+        setCustomPriceInput('');
+      }
       if (initial?.discountAmount) {
         setDiscountMode('amount');
         setDiscount(String(initial.discountAmount));
@@ -63,15 +73,25 @@ export function QuoteItemEditorModal({
         setDiscount('');
       }
     }
-  }, [visible, initial]);
+  }, [visible, initial, product]);
 
   if (!product) return null;
 
+  const parsedCustomPrice = parseFloat(customPriceInput.trim());
+  const validCustomPrice =
+    !isNaN(parsedCustomPrice) && parsedCustomPrice > 0 ? round2(parsedCustomPrice) : undefined;
+
   const selectedQuantity = parseInt(quantity, 10) || 0;
   const hasSufficientStock = selectedQuantity <= product.stockQty;
-  // Subtotal de la línea con la cantidad/precio elegidos ahora mismo: sirve
-  // para acotar el descuento en dólares (nunca puede superar el valor de la línea).
-  const lineSubtotal = round2(getUnitPrice(product, tier) * Math.max(1, selectedQuantity || 1));
+  const effectiveQuantity = Math.max(1, selectedQuantity || 1);
+
+  // Precio unitario base de la línea
+  const currentBasePrice =
+    tier === 'CUSTOM'
+      ? (validCustomPrice ?? 0)
+      : getUnitPrice(product, tier);
+
+  const lineSubtotal = round2(currentBasePrice * effectiveQuantity);
   const numericDiscount = discount.trim() && discount !== '.' ? parseFloat(discount) : 0;
   const discountAmountPreview =
     discountMode === 'pct'
@@ -80,12 +100,56 @@ export function QuoteItemEditorModal({
 
   const lineTotal = round2(Math.max(0, lineSubtotal - discountAmountPreview));
 
-  // Utilidad real de la línea: precio neto por unidad (ya con el descuento
-  // aplicado) contra el último costo. Sin descuento equivale a la utilidad
-  // de lista del precio elegido.
-  const effectiveQuantity = Math.max(1, selectedQuantity || 1);
+  // Utilidad real de la línea: precio neto por unidad (con descuento) vs último costo
   const netUnitPrice = round2(lineTotal / effectiveQuantity);
   const utilityPct = getUtilityPct(netUnitPrice, product.lastCost);
+
+  // Validaciones de restricción: límite en last_cost
+  const hasCost = product.lastCost != null && product.lastCost > 0;
+  const isCustomPriceEmpty = tier === 'CUSTOM' && (validCustomPrice == null || validCustomPrice <= 0);
+  const isBaseBelowCost =
+    tier === 'CUSTOM' && hasCost && (validCustomPrice == null || validCustomPrice < product.lastCost!);
+  const isNetBelowCost = hasCost && netUnitPrice < product.lastCost!;
+
+  const hasRestrictionViolation = isCustomPriceEmpty || isBaseBelowCost || isNetBelowCost;
+
+  let restrictionErrorMessage: string | null = null;
+  if (tier === 'CUSTOM' && isCustomPriceEmpty) {
+    restrictionErrorMessage = 'Ingresa un precio unitario mayor a 0.';
+  } else if (isBaseBelowCost) {
+    restrictionErrorMessage = `El precio no puede ser inferior al costo (${formatCurrency(product.lastCost!)}).`;
+  } else if (isNetBelowCost) {
+    restrictionErrorMessage = `El precio neto con descuento (${formatCurrency(netUnitPrice)}) queda por debajo del costo (${formatCurrency(product.lastCost!)}).`;
+  }
+
+  function getUtilityBadgeStyle(pct: number | null, isSelected = false) {
+    if (pct == null) return styles.utilityBadgeNeutral;
+    if (isSelected) return styles.tierUtilityPillSelected;
+    if (pct <= 10) return styles.utilityBadgeRed;
+    if (pct <= 30) return styles.utilityBadgeOrange;
+    return styles.utilityBadgeGreen;
+  }
+
+  function getUtilityTextStyle(pct: number | null, isSelected = false) {
+    if (isSelected) return styles.tierLabelSelected;
+    if (pct == null) return styles.utilityTextNeutral;
+    if (pct <= 10) return styles.utilityTextRed;
+    if (pct <= 30) return styles.utilityTextOrange;
+    return styles.utilityTextGreen;
+  }
+
+  function getUtilityIcon(pct: number | null): keyof typeof Ionicons.glyphMap {
+    if (pct == null) return 'help-circle-outline';
+    if (pct <= 10) return 'trending-down';
+    return 'trending-up';
+  }
+
+  function getUtilityIconColor(pct: number | null) {
+    if (pct == null) return colors.gray;
+    if (pct <= 10) return colors.danger;
+    if (pct <= 30) return colors.orange;
+    return colors.success;
+  }
 
   function adjustQuantity(delta: number) {
     const current = Math.max(1, parseInt(quantity, 10) || 1);
@@ -124,9 +188,6 @@ export function QuoteItemEditorModal({
   }
 
   function handleDiscountPctChange(text: string) {
-    // Hasta 2 dígitos enteros + 2 decimales (ej. "12.5"), en vez del contador
-    // manual anterior que descartaba el punto y los decimales al llegar a 2
-    // caracteres totales (truncaba "12.5" a "12").
     const cleaned = cleanDecimalInput(text, 2);
     if (cleaned === '' || cleaned === '.') {
       setDiscount(cleaned);
@@ -143,8 +204,6 @@ export function QuoteItemEditorModal({
   }
 
   function handleDiscountAmountChange(text: string) {
-    // Descuento en dólares: sin tope de dígitos enteros fijo (puede ser un
-    // equipo caro), pero nunca puede superar el subtotal de la línea.
     const cleaned = cleanDecimalInput(text, 6);
     if (cleaned === '' || cleaned === '.') {
       setDiscount(cleaned);
@@ -163,14 +222,12 @@ export function QuoteItemEditorModal({
   function handleDiscountModeChange(mode: DiscountMode) {
     if (mode === discountMode) return;
     setDiscountMode(mode);
-    // Se limpia el campo al cambiar de tipo: un mismo número significa algo
-    // distinto en % que en $, y arrastrarlo llevaría a un descuento no
-    // intencional (ej. "12" pasando de "12%" a "$12" sin que el vendedor lo note).
     setDiscount('');
   }
 
   function handleConfirm() {
-    // Aun sin existencias se puede generar la proforma; el PDF lo advertirá.
+    if (hasRestrictionViolation) return;
+
     const qty = Math.min(9999, Math.max(1, parseInt(quantity, 10) || 1));
     const hasDiscount = discount.trim() !== '' && discount.trim() !== '.';
     const numericValue = hasDiscount ? parseFloat(discount) : 0;
@@ -184,7 +241,15 @@ export function QuoteItemEditorModal({
         ? round2(Math.min(lineSubtotal, Math.max(0, numericValue)))
         : undefined;
 
-    onConfirm({ quantity: qty, priceTier: tier, discountPct, discountAmount });
+    const customPrice = tier === 'CUSTOM' ? validCustomPrice : undefined;
+
+    onConfirm({
+      quantity: qty,
+      priceTier: tier,
+      customPrice,
+      discountPct,
+      discountAmount,
+    });
   }
 
   return (
@@ -205,10 +270,19 @@ export function QuoteItemEditorModal({
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Precio</Text>
+            <View style={styles.labelRow}>
+              <Text style={styles.sectionLabel}>Precio</Text>
+              {product.lastCost != null && (
+                <Text style={styles.customPriceCostHint}>
+                  Costo límite: {formatCurrency(product.lastCost)}
+                </Text>
+              )}
+            </View>
+
             <View style={styles.tierRow}>
               {TIERS.map(({ key, label }) => {
-                const tierUtilityPct = getUtilityPct(getUnitPrice(product, key), product.lastCost);
+                const tierUnitPrice = getUnitPrice(product, key);
+                const tierUtilityPct = getUtilityPct(tierUnitPrice, product.lastCost);
                 const isSelected = tier === key;
                 return (
                   <Pressable
@@ -218,23 +292,19 @@ export function QuoteItemEditorModal({
                   >
                     <Text style={[styles.tierLabel, isSelected && styles.tierLabelSelected]}>{label}</Text>
                     <Text style={[styles.tierPrice, isSelected && styles.tierLabelSelected]}>
-                      {formatCurrency(getUnitPrice(product, key))}
+                      {formatCurrency(tierUnitPrice)}
                     </Text>
                     {tierUtilityPct != null && (
                       <View
                         style={[
                           styles.tierUtilityPill,
-                          isSelected
-                            ? styles.tierUtilityPillSelected
-                            : tierUtilityPct > 0 ? styles.utilityBadgePositive : styles.utilityBadgeNegative,
+                          getUtilityBadgeStyle(tierUtilityPct, isSelected),
                         ]}
                       >
                         <Text
                           style={[
                             styles.tierUtilityText,
-                            isSelected
-                              ? styles.tierLabelSelected
-                              : tierUtilityPct > 0 ? styles.utilityPositive : styles.utilityNegative,
+                            getUtilityTextStyle(tierUtilityPct, isSelected),
                           ]}
                         >
                           {tierUtilityPct.toFixed(1)}%
@@ -245,6 +315,76 @@ export function QuoteItemEditorModal({
                 );
               })}
             </View>
+
+            {/* Opción de Precio Personalizado */}
+            <View style={styles.customTierRow}>
+              <Pressable
+                style={[styles.customTierChip, tier === 'CUSTOM' && styles.customTierChipSelected]}
+                onPress={() => {
+                  setTier('CUSTOM');
+                  if (!customPriceInput || customPriceInput === '0') {
+                    setCustomPriceInput(String(getUnitPrice(product, 'A')));
+                  }
+                }}
+              >
+                <View style={styles.customTierLeft}>
+                  <Ionicons
+                    name="create-outline"
+                    size={16}
+                    color={tier === 'CUSTOM' ? colors.onPrimary : colors.black}
+                  />
+                  <Text style={[styles.customTierTitle, tier === 'CUSTOM' && styles.customTierTitleSelected]}>
+                    Personalizar precio
+                  </Text>
+                </View>
+
+                <View style={styles.customTierRight}>
+                  {tier === 'CUSTOM' && validCustomPrice != null ? (
+                    <>
+                      <Text style={[styles.customTierPrice, styles.customTierTitleSelected]}>
+                        {formatCurrency(validCustomPrice)}
+                      </Text>
+                      {utilityPct != null && (
+                        <View style={[styles.tierUtilityPill, styles.tierUtilityPillSelected]}>
+                          <Text style={[styles.tierUtilityText, styles.tierLabelSelected]}>
+                            {utilityPct.toFixed(1)}%
+                          </Text>
+                        </View>
+                      )}
+                    </>
+                  ) : (
+                    <Text style={styles.customTierActionText}>Editar valor</Text>
+                  )}
+                </View>
+              </Pressable>
+
+              {/* Campo numérico de precio cuando Personalizado está activo */}
+              {tier === 'CUSTOM' && (
+                <View style={styles.customPriceInputWrapper}>
+                  <View style={[styles.discountFieldRow, isBaseBelowCost && styles.fieldRowError]}>
+                    <Text style={styles.discountFieldSymbol}>$</Text>
+                    <TextInput
+                      style={styles.discountFieldInput}
+                      value={customPriceInput}
+                      onChangeText={(text) => setCustomPriceInput(cleanDecimalInput(text, 6))}
+                      keyboardType="decimal-pad"
+                      placeholder="0.00"
+                      placeholderTextColor={colors.gray}
+                      maxLength={9}
+                      autoFocus={!initial?.customPrice}
+                    />
+                  </View>
+                </View>
+              )}
+            </View>
+
+            {/* Alerta de restricción si se viola el límite de costo */}
+            {restrictionErrorMessage && (
+              <View style={styles.errorAlert}>
+                <Ionicons name="alert-circle" size={15} color={colors.danger} />
+                <Text style={styles.errorAlertText}>{restrictionErrorMessage}</Text>
+              </View>
+            )}
 
             {(product.lastCost != null || product.averageCost != null) && (
               <View style={styles.costInfoRow}>
@@ -348,15 +488,15 @@ export function QuoteItemEditorModal({
                 <View
                   style={[
                     styles.utilityBadge,
-                    utilityPct > 0 ? styles.utilityBadgePositive : styles.utilityBadgeNegative,
+                    getUtilityBadgeStyle(utilityPct, false),
                   ]}
                 >
                   <Ionicons
-                    name={utilityPct > 0 ? 'trending-up' : 'trending-down'}
+                    name={getUtilityIcon(utilityPct)}
                     size={13}
-                    color={utilityPct > 0 ? colors.success : colors.danger}
+                    color={getUtilityIconColor(utilityPct)}
                   />
-                  <Text style={[styles.utilityBadgePct, utilityPct > 0 ? styles.utilityPositive : styles.utilityNegative]}>
+                  <Text style={[styles.utilityBadgePct, getUtilityTextStyle(utilityPct, false)]}>
                     {utilityPct.toFixed(1)}%
                   </Text>
                 </View>
@@ -367,7 +507,11 @@ export function QuoteItemEditorModal({
           <View style={styles.actions}>
             <Button label="Cancelar" variant="ghost" onPress={onCancel} />
             <View style={styles.confirmButton}>
-              <Button label="Agregar a la cotización" onPress={handleConfirm} />
+              <Button
+                label={initial ? 'Guardar cambios' : 'Agregar a la cotización'}
+                onPress={handleConfirm}
+                disabled={hasRestrictionViolation}
+              />
             </View>
           </View>
         </Pressable>
