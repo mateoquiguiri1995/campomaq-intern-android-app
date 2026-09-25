@@ -22,7 +22,8 @@ function formatListCurrency(value?: number): string {
 
 function formatLastPurchaseDate(dateStr?: string): string {
   if (!dateStr) return '';
-  const date = new Date(`${dateStr}T12:00:00`);
+  const date = new Date(`${dateStr.slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return '';
   const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
   const day = date.getDate();
   const month = months[date.getMonth()];

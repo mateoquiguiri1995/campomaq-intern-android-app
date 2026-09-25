@@ -1,12 +1,16 @@
+// Se crea una sola vez: construir un Intl.NumberFormat en cada llamada es
+// costoso y formatCurrency se usa en cada tarjeta de las listas.
+const currencyFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 /**
  * Formatea un valor numérico como moneda (USD, Ecuador).
- * Ejemplo: formatCurrency(1250.5) -> "$1.250,50"
+ * Ejemplo: formatCurrency(1250.5) -> "$1,250.50"
  */
 export function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
+  return currencyFormatter.format(value);
 }

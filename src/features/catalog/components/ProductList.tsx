@@ -73,7 +73,7 @@ export function ProductList({
       onEndReachedThreshold={0.5}
 
       ListFooterComponent={
-        hasMore ? (
+        products.length === 0 ? null : hasMore ? (
           <Text style={styles.footer}>
             Cargando más productos...
           </Text>

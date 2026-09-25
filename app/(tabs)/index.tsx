@@ -1,19 +1,17 @@
 import { ScreenContainer } from '@/components/common/ScreenContainer';
+import { UserAvatar } from '@/components/common/UserAvatar';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { colors } from '@/theme/colors';
-import { spacing } from '@/theme/spacing';
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useRef, useState } from 'react';
-import { Alert, Dimensions, Modal, Pressable, RefreshControl, Image as RNImage, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 // Importes de servicios y tipos reales
 import { useAppBootstrap } from '@/features/bootstrap/AppBootstrapProvider';
-import type { Product } from '@/features/catalog/types';
 import { useQuoteBuilder } from '@/features/quotes/QuoteBuilderProvider';
 import { listQuotes } from '@/features/quotes/services/quoteService';
 import { getQuoteTotals } from '@/features/quotes/services/quoteCalculations';
-import type { PriceTier, Quote, QuoteItem } from '@/features/quotes/types';
+import type { Quote } from '@/features/quotes/types';
 import { useSellerDashboard } from '@/features/sellers/SellerProvider';
 import { formatCurrency } from '@/utils/currency';
 
@@ -22,6 +20,13 @@ function getHeaderDate(): string {
   const days = ['DOMINGO', 'LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO'];
   const months = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
   return `${days[date.getDay()]} ${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Buenos días';
+  if (hour < 19) return 'Buenas tardes';
+  return 'Buenas noches';
 }
 
 function getQuoteTotal(quote: Quote): number {
@@ -49,70 +54,18 @@ function formatTimeAgo(dateStr: string): string {
 }
 
 export default function HomeScreen() {
-  const { session, logout, updateAvatar } = useAuth();
+  const { session } = useAuth();
   const userId = session?.user.id;
   const { resetBuilder } = useQuoteBuilder();
   const { seller, refresh: refreshSeller } = useSellerDashboard();
-  const { reload, isLoading: isRefreshingData } = useAppBootstrap();
+  const { reload, isLoading: isBootLoading, isSyncing } = useAppBootstrap();
+  const isRefreshingData = isBootLoading || isSyncing;
   const user = session?.user;
   const userName = user?.name ? user.name.split(' ')[0] : 'Vendedor';
-
-  const avatarRef = useRef<View>(null);
-  const [menuVisible, setMenuVisible] = useState(false);
-  const [menuAnchor, setMenuAnchor] = useState({ top: 0, right: 0 });
 
   function handleNewQuote() {
     resetBuilder();
     router.push('/quotes/select-client');
-  }
-
-  function openMenu() {
-    avatarRef.current?.measureInWindow((x: number, y: number, width: number, height: number) => {
-      const windowWidth = Dimensions.get('window').width;
-      setMenuAnchor({
-        top: y + height + spacing.xs,
-        right: Math.max(spacing.md, windowWidth - (x + width)),
-      });
-      setMenuVisible(true);
-    });
-  }
-
-  async function handlePickPhoto() {
-    setMenuVisible(false);
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) return;
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets?.[0]?.uri) {
-      try {
-        await updateAvatar(result.assets[0].uri);
-        Alert.alert('Foto actualizada', 'Tu foto de perfil se ha actualizado con éxito.');
-      } catch (err) {
-        Alert.alert('Error', 'No pudimos actualizar la foto de perfil.');
-      }
-    }
-  }
-
-  async function handleLogout() {
-    setMenuVisible(false);
-    Alert.alert('Cerrar sesión', '¿Estás seguro de que quieres salir?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Salir',
-        style: 'destructive',
-        onPress: () => {
-          logout().catch(() => {
-            Alert.alert('Error', 'No se pudo cerrar la sesión.');
-          });
-        },
-      },
-    ]);
   }
 
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -147,14 +100,6 @@ export default function HomeScreen() {
       loadDashboardData();
     }, [loadDashboardData])
   );
-
-  const getUserInitials = () => {
-    if (!user?.name) return 'MS';
-    const parts = user.name.split(' ');
-    const first = parts[0]?.charAt(0) ?? '';
-    const last = parts[1]?.charAt(0) ?? '';
-    return `${first}${last}`.toUpperCase() || 'MS';
-  };
 
   // 1. Cálculo dinámico de la meta del mes
   const target = seller?.monthlyGoal ?? 0;
@@ -236,20 +181,9 @@ export default function HomeScreen() {
         <View style={styles.headerRow}>
           <View style={styles.headerText}>
             <Text style={styles.dateText}>{getHeaderDate()}</Text>
-            <Text style={styles.greetingText}>Buenos días, {userName}</Text>
+            <Text style={styles.greetingText}>{getGreeting()}, {userName}</Text>
           </View>
-          <TouchableOpacity
-            ref={avatarRef}
-            style={styles.avatar}
-            activeOpacity={0.7}
-            onPress={openMenu}
-          >
-            {user?.avatar ? (
-              <RNImage source={{ uri: user.avatar }} style={styles.avatarImage} />
-            ) : (
-              <Text style={styles.avatarText}>{getUserInitials()}</Text>
-            )}
-          </TouchableOpacity>
+          <UserAvatar size={44} />
         </View>
 
       {/* Meta del Mes Card */}
@@ -399,27 +333,7 @@ export default function HomeScreen() {
         <Ionicons name="add" size={28} color={colors.black} />
       </TouchableOpacity>
 
-      {/* Modal del Menu de Avatar (Cerrar Sesión) */}
-      <Modal
-        visible={menuVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setMenuVisible(false)}
-      >
-        <Pressable style={styles.overlay} onPress={() => setMenuVisible(false)}>
-          <View style={[styles.menu, { top: menuAnchor.top, right: menuAnchor.right }]}>
-            <TouchableOpacity style={styles.menuItem} onPress={handlePickPhoto} activeOpacity={0.7}>
-              <Ionicons name="camera-outline" size={18} color={colors.black} />
-              <Text style={styles.menuItemText}>Cambiar foto</Text>
-            </TouchableOpacity>
-            <View style={styles.menuDivider} />
-            <TouchableOpacity style={styles.menuItem} onPress={handleLogout} activeOpacity={0.7}>
-              <Ionicons name="log-out-outline" size={18} color={colors.danger} />
-              <Text style={[styles.menuItemText, styles.menuItemDanger]}>Cerrar sesión</Text>
-            </TouchableOpacity>
-          </View>
-        </Pressable>
-      </Modal>
+
     </ScreenContainer>
   );
 }

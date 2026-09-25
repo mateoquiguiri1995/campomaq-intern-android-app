@@ -6,20 +6,20 @@ import { colors } from '@/theme/colors';
 import { radius, spacing } from '@/theme/spacing';
 import { formatCurrency } from '@/utils/currency';
 import type { MonthlyGoal } from '../types';
-import { MOCK_MONTHLY_GOAL } from '../services/goalService';
 
 interface MonthlyGoalCardProps {
   goal?: MonthlyGoal | null;
 }
 
-export function MonthlyGoalCard({ goal = MOCK_MONTHLY_GOAL }: MonthlyGoalCardProps) {
-  const currentGoal = goal ?? MOCK_MONTHLY_GOAL;
+export function MonthlyGoalCard({ goal }: MonthlyGoalCardProps) {
+  // Sin datos reales del vendedor no se muestran cifras de ejemplo.
+  if (!goal) return null;
 
   const {
     achievedMargin,
     targetMargin,
     percentage,
-  } = currentGoal;
+  } = goal;
 
   const computedPct =
     percentage ?? (targetMargin > 0 ? (achievedMargin / targetMargin) * 100 : 0);

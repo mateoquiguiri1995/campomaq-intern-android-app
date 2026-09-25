@@ -8,7 +8,7 @@ import {
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { LoadingScreen } from '@/components/common/LoadingScreen';
@@ -30,7 +30,6 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
  * AuthProvider actualiza `session` y el Stack cambia de rama solo — no
  * hace falta navegar manualmente a /login o /(tabs).
  */
-const SESSION_MOUNT_KEY = Math.random().toString();
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -85,6 +84,14 @@ function RootNavigator() {
   const [isInitialBootDone, setIsInitialBootDone] = useState(false);
   const prevHasSession = useRef(hasSession);
 
+  // Referencias estables: SalesLoadingScreen reinicia sus temporizadores
+  // (incluida la red de seguridad de 3.5 s) cada vez que cambia onComplete.
+  const handleSplashComplete = useCallback(() => setShowSplash(false), []);
+  const handleSalesSplashComplete = useCallback(() => {
+    setShowSalesSplash(false);
+    setIsInitialBootDone(true);
+  }, []);
+
   useEffect(() => {
     if (hasSession && !prevHasSession.current) {
       setShowSalesSplash(true);
@@ -107,7 +114,7 @@ function RootNavigator() {
     return (
       <LoadingScreen
         title="Bienvenido"
-        onComplete={() => setShowSplash(false)}
+        onComplete={handleSplashComplete}
       />
     );
   }
@@ -150,10 +157,7 @@ function RootNavigator() {
     return (
       <SalesLoadingScreen
         progress={combinedProgress}
-        onComplete={() => {
-          setShowSalesSplash(false);
-          setIsInitialBootDone(true);
-        }}
+        onComplete={handleSalesSplashComplete}
       />
     );
   }

@@ -9,7 +9,6 @@ import type { AuthSession, LoginCredentials } from './types';
 const AVATAR_OVERRIDE_KEY_PREFIX = 'campomaq_avatar_v1';
 const USER_PROFILE_CACHE_KEY_PREFIX = 'campomaq_profile_v1';
 const LEGACY_AVATAR_OVERRIDE_KEY = 'campomaq-avatar-override';
-const MOCK_SESSION_KEY = 'campomaq-mock-session';
 
 
 interface AuthContextValue {

@@ -46,6 +46,7 @@ export default function ClientsScreen() {
 
   const {
     clients: filteredClients,
+    totalClients,
     loading,
     searchLoading,
     loadingMore,
@@ -175,9 +176,9 @@ export default function ClientsScreen() {
           </ScrollView>
         </View>
 
-        {filteredClients.length > 0 && (
+        {totalClients > 0 && (
           <Text style={styles.countText}>
-            {filteredClients.length} {filteredClients.length === 1 ? 'cliente asignado' : 'clientes asignados'} a tu ruta
+            {totalClients} {totalClients === 1 ? 'cliente asignado' : 'clientes asignados'} a tu ruta
           </Text>
         )}
       </View>

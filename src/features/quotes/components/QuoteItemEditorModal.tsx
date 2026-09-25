@@ -1,15 +1,23 @@
 import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Button } from '@/components/common/Button';
 import type { Product } from '@/features/catalog/types';
 import { colors } from '@/theme/colors';
-import { radius, spacing } from '@/theme/spacing';
-import { typography } from '@/theme/typography';
+import { styles } from '@/theme/styles/src_features_quotes_components_QuoteItemEditorModal';
 import { formatCurrency } from '@/utils/currency';
 
-import { getUnitPrice, getUtilityPct, getUtilityLevel, round2 } from '../services/quoteCalculations';
+import { getUnitPrice, getUtilityPct, round2 } from '../services/quoteCalculations';
 import type { PriceTier } from '../types';
 
 const TIERS: { key: PriceTier; label: string }[] = [
@@ -254,271 +262,317 @@ export function QuoteItemEditorModal({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel}>
-      <KeyboardAvoidingView
-        style={styles.keyboardAvoider}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-      <Pressable style={styles.overlay} onPress={onCancel}>
-        <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
-          <View style={styles.handle} />
+      <View style={styles.modalRoot}>
+        {/* Punto A: Fondo oscuro fijo al 100% que nunca se corta ni salta */}
+        <Pressable style={styles.backdrop} onPress={onCancel} />
 
-          <View style={styles.header}>
-            <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
-            <Text style={styles.productMeta}>
-              Código: {product.code} · {product.iva ? 'IVA 15%' : 'IVA 0%'}
-            </Text>
-          </View>
+        <KeyboardAvoidingView
+          style={styles.keyboardAvoider}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          pointerEvents="box-none"
+        >
+          {/* Usamos View (no Pressable) para no bloquear los gestos de ScrollView en Android */}
+          <View style={styles.sheet}>
+            <View style={styles.handle} />
 
-          <View style={styles.section}>
-            <View style={styles.labelRow}>
-              <Text style={styles.sectionLabel}>Precio</Text>
-              {product.lastCost != null && (
-                <Text style={styles.customPriceCostHint}>
-                  Costo límite: {formatCurrency(product.lastCost)}
-                </Text>
-              )}
-            </View>
-
-            <View style={styles.tierRow}>
-              {TIERS.map(({ key, label }) => {
-                const tierUnitPrice = getUnitPrice(product, key);
-                const tierUtilityPct = getUtilityPct(tierUnitPrice, product.lastCost);
-                const isSelected = tier === key;
-                return (
-                  <Pressable
-                    key={key}
-                    style={[styles.tierChip, isSelected && styles.tierChipSelected]}
-                    onPress={() => setTier(key)}
-                  >
-                    <Text style={[styles.tierLabel, isSelected && styles.tierLabelSelected]}>{label}</Text>
-                    <Text style={[styles.tierPrice, isSelected && styles.tierLabelSelected]}>
-                      {formatCurrency(tierUnitPrice)}
-                    </Text>
-                    {tierUtilityPct != null && (
-                      <View
-                        style={[
-                          styles.tierUtilityPill,
-                          getUtilityBadgeStyle(tierUtilityPct, isSelected),
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.tierUtilityText,
-                            getUtilityTextStyle(tierUtilityPct, isSelected),
-                          ]}
-                        >
-                          {tierUtilityPct.toFixed(1)}%
-                        </Text>
-                      </View>
-                    )}
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            {/* Opción de Precio Personalizado */}
-            <View style={styles.customTierRow}>
-              <Pressable
-                style={[styles.customTierChip, tier === 'CUSTOM' && styles.customTierChipSelected]}
-                onPress={() => {
-                  setTier('CUSTOM');
-                  if (!customPriceInput || customPriceInput === '0') {
-                    setCustomPriceInput(String(getUnitPrice(product, 'A')));
-                  }
-                }}
-              >
-                <View style={styles.customTierLeft}>
-                  <Ionicons
-                    name="create-outline"
-                    size={16}
-                    color={tier === 'CUSTOM' ? colors.onPrimary : colors.black}
-                  />
-                  <Text style={[styles.customTierTitle, tier === 'CUSTOM' && styles.customTierTitleSelected]}>
-                    Personalizar precio
-                  </Text>
-                </View>
-
-                <View style={styles.customTierRight}>
-                  {tier === 'CUSTOM' && validCustomPrice != null ? (
-                    <>
-                      <Text style={[styles.customTierPrice, styles.customTierTitleSelected]}>
-                        {formatCurrency(validCustomPrice)}
-                      </Text>
-                      {utilityPct != null && (
-                        <View style={[styles.tierUtilityPill, styles.tierUtilityPillSelected]}>
-                          <Text style={[styles.tierUtilityText, styles.tierLabelSelected]}>
-                            {utilityPct.toFixed(1)}%
-                          </Text>
-                        </View>
-                      )}
-                    </>
-                  ) : (
-                    <Text style={styles.customTierActionText}>Editar valor</Text>
-                  )}
-                </View>
-              </Pressable>
-
-              {/* Campo numérico de precio cuando Personalizado está activo */}
-              {tier === 'CUSTOM' && (
-                <View style={styles.customPriceInputWrapper}>
-                  <View style={[styles.discountFieldRow, isBaseBelowCost && styles.fieldRowError]}>
-                    <Text style={styles.discountFieldSymbol}>$</Text>
-                    <TextInput
-                      style={styles.discountFieldInput}
-                      value={customPriceInput}
-                      onChangeText={(text) => setCustomPriceInput(cleanDecimalInput(text, 6))}
-                      keyboardType="decimal-pad"
-                      placeholder="0.00"
-                      placeholderTextColor={colors.gray}
-                      maxLength={9}
-                      autoFocus={!initial?.customPrice}
-                    />
-                  </View>
-                </View>
-              )}
-            </View>
-
-            {/* Alerta de restricción si se viola el límite de costo */}
-            {restrictionErrorMessage && (
-              <View style={styles.errorAlert}>
-                <Ionicons name="alert-circle" size={15} color={colors.danger} />
-                <Text style={styles.errorAlertText}>{restrictionErrorMessage}</Text>
-              </View>
-            )}
-
-            {(product.lastCost != null || product.averageCost != null) && (
-              <View style={styles.costInfoRow}>
-                {product.lastCost != null && (
-                  <View style={styles.costPill}>
-                    <Text style={styles.costPillLabel}>Últ. costo</Text>
-                    <Text style={styles.costPillValue}>{formatCurrency(product.lastCost)}</Text>
-                  </View>
-                )}
-                {product.averageCost != null && (
-                  <View style={styles.costPill}>
-                    <Text style={styles.costPillLabel}>Costo prom.</Text>
-                    <Text style={styles.costPillValue}>{formatCurrency(product.averageCost)}</Text>
-                  </View>
-                )}
-              </View>
-            )}
-          </View>
-
-          <View style={styles.section}>
-            <View style={styles.labelRow}>
-              <Text style={styles.sectionLabel}>Cantidad</Text>
-              <Text style={[
-                styles.stockLabel,
-                hasSufficientStock ? styles.stockOk : styles.stockOut
-              ]}>
-                {hasSufficientStock
-                  ? `Stock disponible: ${product.stockQty}`
-                  : `Stock insuficiente: ${product.stockQty} disponible`}
+            {/* Cabecera del producto */}
+            <View style={styles.header}>
+              <Text style={styles.productName} numberOfLines={2}>
+                {product.name}
+              </Text>
+              <Text style={styles.productMeta}>
+                Código: {product.code} · {product.iva ? 'IVA 15%' : 'IVA 0%'}
               </Text>
             </View>
-            <View style={styles.quantityRow}>
-              <Pressable style={styles.stepButton} onPress={() => adjustQuantity(-1)}>
-                <Text style={styles.stepButtonText}>−</Text>
-              </Pressable>
-              <TextInput
-                style={styles.quantityInput}
-                value={quantity}
-                onChangeText={handleQuantityChange}
-                keyboardType="number-pad"
-                maxLength={4}
-              />
-              <Pressable style={styles.stepButton} onPress={() => adjustQuantity(1)}>
-                <Text style={styles.stepButtonText}>+</Text>
-              </Pressable>
-            </View>
-          </View>
 
-          <View style={styles.section}>
-            <View style={styles.labelRow}>
-              <Text style={styles.sectionLabel}>Descuento (opcional)</Text>
-              <View style={styles.discountModeToggle}>
-                <Pressable
-                  style={[styles.discountModeSegment, discountMode === 'pct' && styles.discountModeSegmentSelected]}
-                  onPress={() => handleDiscountModeChange('pct')}
-                  hitSlop={4}
-                >
-                  <Text style={[styles.discountModeSegmentText, discountMode === 'pct' && styles.discountModeSegmentTextSelected]}>%</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.discountModeSegment, discountMode === 'amount' && styles.discountModeSegmentSelected]}
-                  onPress={() => handleDiscountModeChange('amount')}
-                  hitSlop={4}
-                >
-                  <Text style={[styles.discountModeSegmentText, discountMode === 'amount' && styles.discountModeSegmentTextSelected]}>$</Text>
-                </Pressable>
+            {/* Área scrolleable: Controles de edición */}
+            <ScrollView
+              style={styles.scrollArea}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              nestedScrollEnabled
+            >
+              {/* Sección Precio */}
+              <View style={styles.section}>
+                <View style={styles.labelRow}>
+                  <Text style={styles.sectionLabel}>Tipo de precio</Text>
+                  {product.lastCost != null && (
+                    <Text style={styles.customPriceCostHint}>
+                      Costo límite: {formatCurrency(product.lastCost)}
+                    </Text>
+                  )}
+                </View>
+
+                {/* Chips de listas estándar A, B, C */}
+                <View style={styles.tierRow}>
+                  {TIERS.map(({ key, label }) => {
+                    const tierUnitPrice = getUnitPrice(product, key);
+                    const tierUtilityPct = getUtilityPct(tierUnitPrice, product.lastCost);
+                    const isSelected = tier === key;
+                    return (
+                      <Pressable
+                        key={key}
+                        style={[styles.tierChip, isSelected && styles.tierChipSelected]}
+                        onPress={() => setTier(key)}
+                      >
+                        <Text style={[styles.tierLabel, isSelected && styles.tierLabelSelected]}>
+                          {label}
+                        </Text>
+                        <Text style={[styles.tierPrice, isSelected && styles.tierLabelSelected]}>
+                          {formatCurrency(tierUnitPrice)}
+                        </Text>
+                        {tierUtilityPct != null && (
+                          <View
+                            style={[
+                              styles.tierUtilityPill,
+                              getUtilityBadgeStyle(tierUtilityPct, isSelected),
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.tierUtilityText,
+                                getUtilityTextStyle(tierUtilityPct, isSelected),
+                              ]}
+                            >
+                              {tierUtilityPct.toFixed(1)}%
+                            </Text>
+                          </View>
+                        )}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                {/* Punto C: Acordeón para Precio Personalizado con amarillo Campo Maq */}
+                <View style={[styles.customTierCard, tier === 'CUSTOM' && styles.customTierCardSelected]}>
+                  <Pressable
+                    style={[styles.customTierHeader, tier === 'CUSTOM' && styles.customTierHeaderSelected]}
+                    onPress={() => {
+                      if (tier !== 'CUSTOM') {
+                        setTier('CUSTOM');
+                        if (!customPriceInput || customPriceInput === '0') {
+                          setCustomPriceInput(String(getUnitPrice(product, 'A')));
+                        }
+                      }
+                    }}
+                  >
+                    <View style={styles.customTierLeft}>
+                      <Ionicons
+                        name={tier === 'CUSTOM' ? 'create' : 'create-outline'}
+                        size={17}
+                        color={tier === 'CUSTOM' ? colors.onPrimary : colors.black}
+                      />
+                      <Text
+                        style={[
+                          styles.customTierTitle,
+                          tier === 'CUSTOM' && styles.customTierTitleSelected,
+                        ]}
+                      >
+                        Personalizar precio
+                      </Text>
+                    </View>
+
+                    <View style={styles.customTierRight}>
+                      {tier === 'CUSTOM' && validCustomPrice != null ? (
+                        <>
+                          <Text style={[styles.customTierPrice, styles.customTierTitleSelected]}>
+                            {formatCurrency(validCustomPrice)}
+                          </Text>
+                          {utilityPct != null && (
+                            <View style={[styles.tierUtilityPill, styles.tierUtilityPillSelected]}>
+                              <Text style={[styles.tierUtilityText, styles.tierLabelSelected]}>
+                                {utilityPct.toFixed(1)}%
+                              </Text>
+                            </View>
+                          )}
+                        </>
+                      ) : (
+                        <Text style={styles.customTierActionText}>Ingresar valor</Text>
+                      )}
+                    </View>
+                  </Pressable>
+
+                  {/* Campo numérico desplegado suavemente cuando Personalizado está activo */}
+                  {tier === 'CUSTOM' && (
+                    <View style={styles.customPriceExpandedArea}>
+                      <View style={[styles.discountFieldRow, isBaseBelowCost && styles.fieldRowError]}>
+                        <Text style={styles.discountFieldSymbol}>$</Text>
+                        <TextInput
+                          style={styles.discountFieldInput}
+                          value={customPriceInput}
+                          onChangeText={(text) => setCustomPriceInput(cleanDecimalInput(text, 6))}
+                          keyboardType="decimal-pad"
+                          placeholder="0.00"
+                          placeholderTextColor={colors.gray}
+                          maxLength={9}
+                          autoFocus={!initial?.customPrice}
+                        />
+                      </View>
+                    </View>
+                  )}
+                </View>
+
+                {/* Alerta de restricción si se viola el límite de costo */}
+                {restrictionErrorMessage && (
+                  <View style={styles.errorAlert}>
+                    <Ionicons name="alert-circle" size={15} color={colors.danger} />
+                    <Text style={styles.errorAlertText}>{restrictionErrorMessage}</Text>
+                  </View>
+                )}
+
+                {/* Cajoncitos para último costo y costo promedio */}
+                {(product.lastCost != null || product.averageCost != null) && (
+                  <View style={styles.costInfoRow}>
+                    {product.lastCost != null && (
+                      <View style={styles.costPill}>
+                        <Text style={styles.costPillLabel}>Últ. costo</Text>
+                        <Text style={styles.costPillValue}>{formatCurrency(product.lastCost)}</Text>
+                      </View>
+                    )}
+                    {product.averageCost != null && (
+                      <View style={styles.costPill}>
+                        <Text style={styles.costPillLabel}>Costo prom.</Text>
+                        <Text style={styles.costPillValue}>{formatCurrency(product.averageCost)}</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
               </View>
-            </View>
 
-            <View style={styles.discountFieldRow}>
-              {discountMode === 'amount' && <Text style={styles.discountFieldSymbol}>$</Text>}
-              <TextInput
-                style={styles.discountFieldInput}
-                value={discount}
-                onChangeText={discountMode === 'pct' ? handleDiscountPctChange : handleDiscountAmountChange}
-                keyboardType="decimal-pad"
-                placeholder={discountMode === 'pct' ? '0' : '0.00'}
-                placeholderTextColor={colors.gray}
-                maxLength={discountMode === 'pct' ? 5 : 9}
-              />
-              {discountMode === 'pct' && <Text style={styles.discountFieldSymbol}>%</Text>}
-            </View>
-          </View>
-
-          <View style={styles.summaryCard}>
-            {discountAmountPreview > 0 && (
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Descuento</Text>
-                <Text style={styles.summaryDiscountValue}>−{formatCurrency(discountAmountPreview)}</Text>
-              </View>
-            )}
-
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabelStrong}>Total línea</Text>
-              <Text style={styles.summaryTotalValue}>{formatCurrency(lineTotal)}</Text>
-            </View>
-
-            {utilityPct != null && (
-              <View style={[styles.summaryRow, styles.summaryRowUtility]}>
-                <Text style={styles.summaryLabel}>Utilidad</Text>
-                <View
-                  style={[
-                    styles.utilityBadge,
-                    getUtilityBadgeStyle(utilityPct, false),
-                  ]}
-                >
-                  <Ionicons
-                    name={getUtilityIcon(utilityPct)}
-                    size={13}
-                    color={getUtilityIconColor(utilityPct)}
-                  />
-                  <Text style={[styles.utilityBadgePct, getUtilityTextStyle(utilityPct, false)]}>
-                    {utilityPct.toFixed(1)}%
+              {/* Sección Cantidad */}
+              <View style={styles.section}>
+                <View style={styles.labelRow}>
+                  <Text style={styles.sectionLabel}>Cantidad</Text>
+                  <Text
+                    style={[
+                      styles.stockLabel,
+                      hasSufficientStock ? styles.stockOk : styles.stockOut,
+                    ]}
+                  >
+                    {hasSufficientStock
+                      ? `Stock disponible: ${product.stockQty}`
+                      : `Stock insuficiente: ${product.stockQty} disp.`}
                   </Text>
                 </View>
+                <View style={styles.quantityRow}>
+                  <Pressable style={styles.stepButton} onPress={() => adjustQuantity(-1)}>
+                    <Text style={styles.stepButtonText}>−</Text>
+                  </Pressable>
+                  <TextInput
+                    style={styles.quantityInput}
+                    value={quantity}
+                    onChangeText={handleQuantityChange}
+                    keyboardType="number-pad"
+                    maxLength={4}
+                  />
+                  <Pressable style={styles.stepButton} onPress={() => adjustQuantity(1)}>
+                    <Text style={styles.stepButtonText}>+</Text>
+                  </Pressable>
+                </View>
               </View>
-            )}
-          </View>
 
-          <View style={styles.actions}>
-            <Button label="Cancelar" variant="ghost" onPress={onCancel} />
-            <View style={styles.confirmButton}>
-              <Button
-                label={initial ? 'Guardar cambios' : 'Agregar a la cotización'}
-                onPress={handleConfirm}
-                disabled={hasRestrictionViolation}
-              />
+              {/* Sección Descuento */}
+              <View style={styles.section}>
+                <View style={styles.labelRow}>
+                  <Text style={styles.sectionLabel}>Descuento (opcional)</Text>
+                  <View style={styles.discountModeToggle}>
+                    <Pressable
+                      style={[
+                        styles.discountModeSegment,
+                        discountMode === 'pct' && styles.discountModeSegmentSelected,
+                      ]}
+                      onPress={() => handleDiscountModeChange('pct')}
+                      hitSlop={4}
+                    >
+                      <Text
+                        style={[
+                          styles.discountModeSegmentText,
+                          discountMode === 'pct' && styles.discountModeSegmentTextSelected,
+                        ]}
+                      >
+                        %
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      style={[
+                        styles.discountModeSegment,
+                        discountMode === 'amount' && styles.discountModeSegmentSelected,
+                      ]}
+                      onPress={() => handleDiscountModeChange('amount')}
+                      hitSlop={4}
+                    >
+                      <Text
+                        style={[
+                          styles.discountModeSegmentText,
+                          discountMode === 'amount' && styles.discountModeSegmentTextSelected,
+                        ]}
+                      >
+                        $
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+
+                <View style={styles.discountFieldRow}>
+                  {discountMode === 'amount' && <Text style={styles.discountFieldSymbol}>$</Text>}
+                  <TextInput
+                    style={styles.discountFieldInput}
+                    value={discount}
+                    onChangeText={discountMode === 'pct' ? handleDiscountPctChange : handleDiscountAmountChange}
+                    keyboardType="decimal-pad"
+                    placeholder={discountMode === 'pct' ? '0' : '0.00'}
+                    placeholderTextColor={colors.gray}
+                    maxLength={discountMode === 'pct' ? 5 : 9}
+                  />
+                  {discountMode === 'pct' && <Text style={styles.discountFieldSymbol}>%</Text>}
+                </View>
+              </View>
+            </ScrollView>
+
+            {/* Punto B: Footer Sticky con Resumen en Vivo + Botones */}
+            <View style={styles.stickyFooter}>
+              <View style={styles.stickySummaryCard}>
+                <View style={styles.stickySummaryLeft}>
+                  <Text style={styles.stickySummaryLabel}>TOTAL LÍNEA</Text>
+                  <View style={styles.stickySummaryPriceRow}>
+                    <Text style={styles.stickySummaryTotal}>{formatCurrency(lineTotal)}</Text>
+                    {discountAmountPreview > 0 && (
+                      <Text style={styles.stickySummaryDiscount}>
+                        (−{formatCurrency(discountAmountPreview)})
+                      </Text>
+                    )}
+                  </View>
+                </View>
+
+                {utilityPct != null && (
+                  <View style={[styles.utilityBadge, getUtilityBadgeStyle(utilityPct, false)]}>
+                    <Ionicons
+                      name={getUtilityIcon(utilityPct)}
+                      size={13}
+                      color={getUtilityIconColor(utilityPct)}
+                    />
+                    <Text style={[styles.utilityBadgePct, getUtilityTextStyle(utilityPct, false)]}>
+                      {utilityPct.toFixed(1)}%
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.actions}>
+                <Button label="Cancelar" variant="ghost" onPress={onCancel} />
+                <View style={styles.confirmButton}>
+                  <Button
+                    label={initial ? 'Guardar cambios' : 'Agregar a la cotización'}
+                    onPress={handleConfirm}
+                    disabled={hasRestrictionViolation}
+                  />
+                </View>
+              </View>
             </View>
           </View>
-        </Pressable>
-      </Pressable>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
-
-import { styles } from '@/theme/styles/src_features_quotes_components_QuoteItemEditorModal';

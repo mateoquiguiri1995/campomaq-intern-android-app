@@ -44,6 +44,15 @@ export interface ProductsResult {
 }
 
 /**
+ * Clave de comparación para códigos de producto: tolera espacios sobrantes y
+ * diferencias de mayúsculas entre endpoints. Solo se usa para el cruce; el
+ * código original es el que se muestra.
+ */
+function normalizeProductCode(code: string | null | undefined): string {
+  return String(code ?? '').trim().toLowerCase();
+}
+
+/**
  * Une productos y datos comerciales mediante el código de producto. Un
  * producto sin datos comerciales, o con stock negativo, no está disponible.
  */
@@ -52,16 +61,17 @@ function mapAvailableProducts(
   commercialItems: ApiProductCommercialData[]
 ): Product[] {
   const commercialByProductCode = new Map(
-    commercialItems.map((commercial) => [commercial.product_code, commercial])
+    commercialItems.map((commercial) => [normalizeProductCode(commercial.product_code), commercial])
   );
 
   const seenCodes = new Set<string>();
 
   return items.flatMap((item) => {
-    const commercial = commercialByProductCode.get(item.product_code);
+    const codeKey = normalizeProductCode(item.product_code);
+    const commercial = commercialByProductCode.get(codeKey);
 
     if (
-      seenCodes.has(item.product_code) ||
+      seenCodes.has(codeKey) ||
       !commercial ||
       typeof commercial.stock !== 'number' ||
       commercial.stock < 0
@@ -69,7 +79,7 @@ function mapAvailableProducts(
       return [];
     }
 
-    seenCodes.add(item.product_code);
+    seenCodes.add(codeKey);
     return [mapApiProduct(item, commercial)];
   });
 }

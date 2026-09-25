@@ -92,6 +92,7 @@ function getQuoteTotal(quote: Quote): number {
 
 function formatQuoteDate(dateStr: string): string {
   const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return '';
   const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
   return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
 }
@@ -106,7 +107,8 @@ export default function ReportsScreen() {
   const { seller } = useSellerDashboard();
   const userId = session?.user.id;
   const { resetBuilder } = useQuoteBuilder();
-  const { reload, isLoading: isRefreshingData } = useAppBootstrap();
+  const { reload, isLoading: isBootLoading, isSyncing } = useAppBootstrap();
+  const isRefreshingData = isBootLoading || isSyncing;
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -146,7 +148,8 @@ export default function ReportsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      loadQuotes();
+      // Devuelve la limpieza para ignorar respuestas que lleguen tras perder el foco.
+      return loadQuotes();
     }, [loadQuotes])
   );
 

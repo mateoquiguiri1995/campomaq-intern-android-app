@@ -1,10 +1,23 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 import { Button } from '@/components/common/Button';
 import { colors } from '@/theme/colors';
 import { styles } from '@/theme/styles/src_features_quotes_components_QuoteTermsModal';
+import { PRESET_SELLERS, getSavedDefaultSellerId, saveDefaultSellerId } from '../constants/sellers';
+import type { QuoteSellerInfo } from '../types';
 
 export interface PRESET_OPTION {
   id: string;
@@ -57,38 +70,42 @@ interface QuoteTermsModalProps {
   visible: boolean;
   initialTerms?: string;
   initialObservations?: string;
+  initialSeller?: QuoteSellerInfo | null;
   loading?: boolean;
   onCancel: () => void;
-  onConfirm: (values: { termsAndConditions: string; observations: string }) => void;
+  onConfirm: (values: {
+    termsAndConditions: string;
+    observations: string;
+    seller: QuoteSellerInfo;
+  }) => void;
 }
 
 export function QuoteTermsModal({
   visible,
   initialTerms = '',
   initialObservations = '',
+  initialSeller = null,
   loading = false,
   onCancel,
   onConfirm,
 }: QuoteTermsModalProps) {
+  const [selectedSellerId, setSelectedSellerId] = useState<string | null>(null);
+  const [isChangingSeller, setIsChangingSeller] = useState(false);
+
   const [selectedTerms, setSelectedTerms] = useState<Record<string, boolean>>({});
   const [customTerms, setCustomTerms] = useState('');
   const [selectedObs, setSelectedObs] = useState<Record<string, boolean>>({});
   const [customObs, setCustomObs] = useState('');
 
-  /**
-   * Empareja cada preset contra una LÍNEA completa de `text` (separador real
-   * usado al construir el string: '\n'), en vez de un `.includes()`/`.replace()`
-   * sin anclar. Así, si el texto personalizado del vendedor contiene el texto
-   * de un preset como parte de una oración más larga (no como su propia
-   * línea completa), no se lo confunde con el preset marcado.
-   */
   function splitPresetLines<T extends { id: string; text: string }>(
     text: string,
     presets: T[]
   ): { map: Record<string, boolean>; remaining: string } {
     const map: Record<string, boolean> = {};
     if (!text) {
-      presets.forEach((preset) => { map[preset.id] = false; });
+      presets.forEach((preset) => {
+        map[preset.id] = false;
+      });
       return { map, remaining: '' };
     }
 
@@ -118,8 +135,27 @@ export function QuoteTermsModal({
       const obsResult = splitPresetLines(initialObservations, PRESET_OBSERVATIONS);
       setSelectedObs(obsResult.map);
       setCustomObs(obsResult.remaining);
+
+      // Carga del asesor responsable
+      if (initialSeller?.id) {
+        setSelectedSellerId(initialSeller.id);
+        setIsChangingSeller(false);
+      } else {
+        getSavedDefaultSellerId().then((savedId) => {
+          if (savedId && PRESET_SELLERS.some((s) => s.id === savedId)) {
+            setSelectedSellerId(savedId);
+            setIsChangingSeller(false);
+          } else {
+            // Primera vez en este equipo: obligatorio elegir
+            setSelectedSellerId(null);
+            setIsChangingSeller(true);
+          }
+        });
+      }
     }
-  }, [visible, initialTerms, initialObservations]);
+  }, [visible, initialTerms, initialObservations, initialSeller]);
+
+  const activeSeller = PRESET_SELLERS.find((s) => s.id === selectedSellerId);
 
   function toggleTerm(id: string) {
     setSelectedTerms((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -130,7 +166,15 @@ export function QuoteTermsModal({
   }
 
   function handleConfirm() {
-    // Build combined terms and conditions
+    if (!activeSeller) {
+      Alert.alert('Asesor requerido', 'Por favor selecciona quién está emitiendo la cotización.');
+      return;
+    }
+
+    // Guardar para las próximas cotizaciones en este teléfono
+    saveDefaultSellerId(activeSeller.id);
+
+    // Unir acuerdos comerciales
     const termsParts: string[] = [];
     PRESET_TERMS.forEach((preset) => {
       if (selectedTerms[preset.id]) {
@@ -142,7 +186,7 @@ export function QuoteTermsModal({
     }
     const finalTerms = termsParts.join('\n');
 
-    // Build combined observations
+    // Unir observaciones
     const obsParts: string[] = [];
     PRESET_OBSERVATIONS.forEach((preset) => {
       if (selectedObs[preset.id]) {
@@ -157,6 +201,7 @@ export function QuoteTermsModal({
     onConfirm({
       termsAndConditions: finalTerms,
       observations: finalObs,
+      seller: activeSeller,
     });
   }
 
@@ -166,127 +211,216 @@ export function QuoteTermsModal({
         style={styles.keyboardAvoider}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-      <Pressable style={styles.overlay} onPress={onCancel}>
-        <Pressable style={styles.sheetContainer} onPress={(e) => e.stopPropagation()}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.title}>Acuerdos, Condiciones y Observaciones</Text>
-            <Text style={styles.subtitle}>
-              Selecciona las opciones que apliquen a esta cotización. Si no seleccionas ninguna, no aparecerán en el PDF.
-            </Text>
-          </View>
+        <Pressable style={styles.overlay} onPress={onCancel}>
+          <Pressable style={styles.sheetContainer} onPress={(e) => e.stopPropagation()}>
+            {/* Manija de arrastre */}
+            <View style={styles.dragHandle} />
 
-          {/* Scrollable Content */}
-          <ScrollView
-            style={styles.scrollArea}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            {/* Sección 1: Acuerdos y Condiciones */}
-            <View style={styles.sectionCard}>
-              <View style={styles.sectionHeaderRow}>
-                <Ionicons name="document-text-outline" size={18} color={colors.black} style={{ marginRight: 6 }} />
-                <Text style={styles.sectionTitle}>Términos y Acuerdos Comerciales</Text>
-              </View>
-              <Text style={styles.sectionDescription}>
-                Marca las condiciones comerciales que apliquen a esta cotización:
+            {/* Header */}
+            <View style={styles.header}>
+              <Text style={styles.title}>Finalizar Cotización</Text>
+              <Text style={styles.subtitle}>
+                Verifica el asesor responsable y los acuerdos antes de generar la proforma.
               </Text>
+            </View>
 
-              <View style={styles.optionsList}>
-                {PRESET_TERMS.map((preset) => {
-                  const isChecked = !!selectedTerms[preset.id];
-                  return (
-                    <Pressable
-                      key={preset.id}
-                      style={[styles.checkboxRow, isChecked && styles.checkboxRowSelected]}
-                      onPress={() => toggleTerm(preset.id)}
+            {/* Scrollable Content */}
+            <ScrollView
+              style={styles.scrollArea}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* Sección 1: Asesor Comercial Responsable */}
+              <View style={styles.sectionCard}>
+                <View style={styles.sectionHeaderRow}>
+                  <View style={styles.sectionHeaderLeft}>
+                    <Ionicons name="person-circle-outline" size={20} color={colors.black} />
+                    <Text style={styles.sectionTitle}>¿Quién está cotizando?</Text>
+                  </View>
+                  {!activeSeller ? (
+                    <View style={styles.sectionRequiredBadge}>
+                      <Text style={styles.sectionRequiredText}>Obligatorio</Text>
+                    </View>
+                  ) : !isChangingSeller ? (
+                    <View style={styles.sectionSavedBadge}>
+                      <Text style={styles.sectionSavedText}>Recordado</Text>
+                    </View>
+                  ) : null}
+                </View>
+
+                {/* Si ya hay vendedor recordado y no estamos en modo cambiar */}
+                {activeSeller && !isChangingSeller ? (
+                  <View style={styles.sellerSummaryCard}>
+                    <View style={styles.sellerSummaryLeft}>
+                      <View style={styles.sellerAvatarContainer}>
+                        <Ionicons name="person" size={20} color={colors.black} />
+                      </View>
+                      <View style={styles.sellerSummaryInfo}>
+                        <Text style={styles.sellerSummaryName}>{activeSeller.name}</Text>
+                        <Text style={styles.sellerSummaryDetails} numberOfLines={1}>
+                          {activeSeller.location} · {activeSeller.phone}
+                          {activeSeller.email && activeSeller.email !== '----' ? ` · ${activeSeller.email}` : ''}
+                        </Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.sellerChangeBtn}
+                      activeOpacity={0.7}
+                      onPress={() => setIsChangingSeller(true)}
                     >
-                      <Ionicons
-                        name={isChecked ? 'checkbox' : 'square-outline'}
-                        size={20}
-                        color={isChecked ? colors.primary : colors.gray}
-                        style={styles.checkboxIcon}
-                      />
-                      <Text style={[styles.checkboxText, isChecked && styles.checkboxTextSelected]}>
-                        {preset.text}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+                      <Ionicons name="swap-horizontal" size={16} color={colors.black} />
+                      <Text style={styles.sellerChangeBtnText}>Cambiar</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  /* Modo selección: Radio buttons de los vendedores */
+                  <View style={styles.radioList}>
+                    {PRESET_SELLERS.map((s) => {
+                      const isSelected = selectedSellerId === s.id;
+                      return (
+                        <Pressable
+                          key={s.id}
+                          style={[styles.radioCard, isSelected && styles.radioCardSelected]}
+                          onPress={() => {
+                            setSelectedSellerId(s.id);
+                            // Al seleccionar uno nuevo, se mantiene marcado
+                          }}
+                        >
+                          <View style={styles.radioCircle}>
+                            <Ionicons
+                              name={isSelected ? 'radio-button-on' : 'radio-button-off'}
+                              size={22}
+                              color={isSelected ? colors.black : colors.gray}
+                            />
+                          </View>
+                          <View style={styles.radioInfo}>
+                            <Text style={[styles.radioName, isSelected && styles.radioNameSelected]}>
+                              {s.name}
+                            </Text>
+                            <Text style={styles.radioDetails}>
+                              {s.location} · {s.phone}
+                              {s.email && s.email !== '----' ? ` · ${s.email}` : ''}
+                            </Text>
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                    <Text style={styles.sellerHelpText}>
+                      * Tu selección se recordará automáticamente en este teléfono para las próximas cotizaciones.
+                    </Text>
+                  </View>
+                )}
               </View>
 
-              <Text style={styles.customInputLabel}>Acuerdos adicionales o personalizados (opcional):</Text>
-              <TextInput
-                style={styles.customInput}
-                value={customTerms}
-                onChangeText={setCustomTerms}
-                multiline
-                placeholder="Escribe acuerdos adicionales aquí..."
-                placeholderTextColor={colors.gray}
-              />
-            </View>
+              {/* Sección 2: Acuerdos y Condiciones */}
+              <View style={styles.sectionCard}>
+                <View style={styles.sectionHeaderRow}>
+                  <View style={styles.sectionHeaderLeft}>
+                    <Ionicons name="document-text-outline" size={18} color={colors.black} />
+                    <Text style={styles.sectionTitle}>Términos y Acuerdos</Text>
+                  </View>
+                </View>
+                <Text style={styles.sectionDescription}>
+                  Marca las condiciones comerciales que apliquen:
+                </Text>
 
-            {/* Sección 2: Observaciones */}
-            <View style={styles.sectionCard}>
-              <View style={styles.sectionHeaderRow}>
-                <Ionicons name="information-circle-outline" size={18} color={colors.black} style={{ marginRight: 6 }} />
-                <Text style={styles.sectionTitle}>Observaciones de la Cotización</Text>
+                <View style={styles.optionsList}>
+                  {PRESET_TERMS.map((preset) => {
+                    const isChecked = !!selectedTerms[preset.id];
+                    return (
+                      <Pressable
+                        key={preset.id}
+                        style={[styles.checkboxRow, isChecked && styles.checkboxRowSelected]}
+                        onPress={() => toggleTerm(preset.id)}
+                      >
+                        <Ionicons
+                          name={isChecked ? 'checkbox' : 'square-outline'}
+                          size={19}
+                          color={isChecked ? colors.black : colors.gray}
+                          style={styles.checkboxIcon}
+                        />
+                        <Text style={[styles.checkboxText, isChecked && styles.checkboxTextSelected]}>
+                          {preset.text}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                <Text style={styles.customInputLabel}>Acuerdos adicionales (opcional):</Text>
+                <TextInput
+                  style={styles.customInput}
+                  value={customTerms}
+                  onChangeText={setCustomTerms}
+                  multiline
+                  placeholder="Escribe acuerdos adicionales aquí..."
+                  placeholderTextColor={colors.gray}
+                />
               </View>
-              <Text style={styles.sectionDescription}>
-                Marca las observaciones que desees incluir:
-              </Text>
 
-              <View style={styles.optionsList}>
-                {PRESET_OBSERVATIONS.map((preset) => {
-                  const isChecked = !!selectedObs[preset.id];
-                  return (
-                    <Pressable
-                      key={preset.id}
-                      style={[styles.checkboxRow, isChecked && styles.checkboxRowSelected]}
-                      onPress={() => toggleObs(preset.id)}
-                    >
-                      <Ionicons
-                        name={isChecked ? 'checkbox' : 'square-outline'}
-                        size={20}
-                        color={isChecked ? colors.primary : colors.gray}
-                        style={styles.checkboxIcon}
-                      />
-                      <Text style={[styles.checkboxText, isChecked && styles.checkboxTextSelected]}>
-                        {preset.text}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+              {/* Sección 3: Observaciones */}
+              <View style={styles.sectionCard}>
+                <View style={styles.sectionHeaderRow}>
+                  <View style={styles.sectionHeaderLeft}>
+                    <Ionicons name="information-circle-outline" size={18} color={colors.black} />
+                    <Text style={styles.sectionTitle}>Observaciones</Text>
+                  </View>
+                </View>
+                <Text style={styles.sectionDescription}>
+                  Marca las observaciones que desees incluir:
+                </Text>
+
+                <View style={styles.optionsList}>
+                  {PRESET_OBSERVATIONS.map((preset) => {
+                    const isChecked = !!selectedObs[preset.id];
+                    return (
+                      <Pressable
+                        key={preset.id}
+                        style={[styles.checkboxRow, isChecked && styles.checkboxRowSelected]}
+                        onPress={() => toggleObs(preset.id)}
+                      >
+                        <Ionicons
+                          name={isChecked ? 'checkbox' : 'square-outline'}
+                          size={19}
+                          color={isChecked ? colors.black : colors.gray}
+                          style={styles.checkboxIcon}
+                        />
+                        <Text style={[styles.checkboxText, isChecked && styles.checkboxTextSelected]}>
+                          {preset.text}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                <Text style={styles.customInputLabel}>Observaciones adicionales (opcional):</Text>
+                <TextInput
+                  style={styles.customInput}
+                  value={customObs}
+                  onChangeText={setCustomObs}
+                  multiline
+                  placeholder="Escribe observaciones adicionales aquí..."
+                  placeholderTextColor={colors.gray}
+                />
               </View>
+            </ScrollView>
 
-              <Text style={styles.customInputLabel}>Observaciones adicionales o personalizadas (opcional):</Text>
-              <TextInput
-                style={styles.customInput}
-                value={customObs}
-                onChangeText={setCustomObs}
-                multiline
-                placeholder="Escribe observaciones adicionales aquí..."
-                placeholderTextColor={colors.gray}
-              />
+            {/* Botones de acción */}
+            <View style={styles.actionsRow}>
+              <View style={styles.cancelButton}>
+                <Button label="Cancelar" variant="ghost" onPress={onCancel} disabled={loading} />
+              </View>
+              <View style={styles.confirmButton}>
+                <Button
+                  label={loading ? 'Generando…' : 'Enviar cotización'}
+                  onPress={handleConfirm}
+                  disabled={loading}
+                />
+              </View>
             </View>
-          </ScrollView>
-
-          {/* Botones de acción */}
-          <View style={styles.actionsRow}>
-            <View style={styles.cancelButton}>
-              <Button label="Cancelar" variant="ghost" onPress={onCancel} disabled={loading} />
-            </View>
-            <View style={styles.confirmButton}>
-              <Button
-                label={loading ? 'Enviando…' : 'Enviar cotización'}
-                onPress={handleConfirm}
-                disabled={loading}
-              />
-            </View>
-          </View>
+          </Pressable>
         </Pressable>
-      </Pressable>
       </KeyboardAvoidingView>
     </Modal>
   );

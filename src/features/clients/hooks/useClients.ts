@@ -195,6 +195,8 @@ export function useClients(statusFilter?: (client: Client) => boolean) {
 
   return {
     clients: visibleClients,
+    // Total del conjunto filtrado (no solo la porción visible por paginación).
+    totalClients: sourceClients.length,
     loading: bootLoading && browseClients.length === 0 && !allClients?.length,
     searchLoading,
     loadingMore,

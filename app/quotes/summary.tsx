@@ -17,13 +17,13 @@ import { colors } from '@/theme/colors';
 import { radius, spacing } from '@/theme/spacing';
 import { typography } from '@/theme/typography';
 import { formatCurrency } from '@/utils/currency';
-import type { Quote, QuoteItem } from '@/features/quotes/types';
+import type { Quote, QuoteItem, QuoteSellerInfo } from '@/features/quotes/types';
 
 export default function QuoteSummaryScreen() {
   const router = useRouter();
   const { session } = useAuth();
   const { draftId } = useLocalSearchParams<{ draftId?: string }>();
-  const { id, client, items, status, observations, termsAndConditions, createdAt, loadDraft, updateItem, removeItem, saveDraft, markGenerated, duplicateQuote, resetBuilder } = useQuoteBuilder();
+  const { id, client, items, status, observations, termsAndConditions, seller, createdAt, loadDraft, updateItem, removeItem, saveDraft, markGenerated, duplicateQuote, resetBuilder } = useQuoteBuilder();
 
   const [hydrating, setHydrating] = useState(!!draftId);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -34,7 +34,11 @@ export default function QuoteSummaryScreen() {
 
   useEffect(() => {
     if (!draftId) return;
-    loadDraft(draftId).finally(() => setHydrating(false));
+    loadDraft(draftId)
+      .catch(() => {
+        Alert.alert('No se pudo abrir la cotización', 'Intenta de nuevo desde Reportes.');
+      })
+      .finally(() => setHydrating(false));
   }, [draftId, loadDraft]);
 
   const totals = getQuoteTotals(items);
@@ -57,7 +61,11 @@ export default function QuoteSummaryScreen() {
     setTermsModalVisible(true);
   }
 
-  async function handleConfirmTermsAndSend(values: { termsAndConditions: string; observations: string }) {
+  async function handleConfirmTermsAndSend(values: {
+    termsAndConditions: string;
+    observations: string;
+    seller: QuoteSellerInfo;
+  }) {
     let draftSaved = false;
     try {
       setGenerating(true);
@@ -69,7 +77,7 @@ export default function QuoteSummaryScreen() {
       // confiable de distinguir "compartido" de "panel cerrado sin elegir
       // nada". Por eso el botón "Reenviar PDF" (más abajo, para cotizaciones
       // ya no editables) sigue disponible después de esto.
-      await shareQuotePdf(quote, session?.user ?? undefined);
+      await shareQuotePdf(quote);
       await markGenerated(values);
       router.replace('/reports');
     } catch (error) {
@@ -98,10 +106,11 @@ export default function QuoteSummaryScreen() {
         status,
         observations: observations.trim() || undefined,
         termsAndConditions: termsAndConditions.trim() || undefined,
+        seller: seller ?? undefined,
         createdAt,
         updatedAt: new Date().toISOString(),
       };
-      await shareQuotePdf(quote, session?.user ?? undefined);
+      await shareQuotePdf(quote);
     } catch (error) {
       Alert.alert('No se pudo compartir el PDF', error instanceof Error ? error.message : 'Intenta de nuevo.');
     } finally {
@@ -470,6 +479,7 @@ export default function QuoteSummaryScreen() {
         visible={termsModalVisible}
         initialTerms={termsAndConditions}
         initialObservations={observations}
+        initialSeller={seller}
         loading={generating}
         onCancel={() => setTermsModalVisible(false)}
         onConfirm={handleConfirmTermsAndSend}

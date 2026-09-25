@@ -88,7 +88,7 @@ export async function deleteQuote(userId: string, id: string): Promise<void> {
   const quotes = await readAll(userId);
   const quote = quotes.find((item) => item.id === id);
   if (quote && quote.status !== 'Pendiente') {
-    throw new Error('Una cotización aceptada no puede eliminarse.');
+    throw new Error('Solo los borradores pendientes pueden eliminarse.');
   }
   await writeAll(userId, quotes.filter((quote) => quote.id !== id));
 }

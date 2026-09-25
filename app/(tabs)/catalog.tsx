@@ -1,14 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Dimensions,
-  Modal,
-  Pressable,
-  Image as RNImage,
   ScrollView,
   Text,
   TextInput,
@@ -16,23 +11,26 @@ import {
   View
 } from 'react-native';
 
+import { Button } from '@/components/common/Button';
 import { ScreenContainer } from '@/components/common/ScreenContainer';
+import { UserAvatar } from '@/components/common/UserAvatar';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { BrandSelect } from '@/features/catalog/components/BrandSelect';
 import { CategoryChip } from '@/features/catalog/components/CategoryChip';
 import { MonthlyGoalCard } from '@/features/catalog/components/MonthlyGoalCard';
 import { ProductList } from '@/features/catalog/components/ProductList';
+import { SearchSuggestionsPanel } from '@/features/catalog/components/SearchSuggestionsPanel';
 import { useCatalog } from '@/features/catalog/hooks/useCatalog';
+import { useSearchFieldFocus } from '@/features/catalog/hooks/useSearchFieldFocus';
 import type { Product } from '@/features/catalog/types';
 import { useQuoteBuilder } from '@/features/quotes/QuoteBuilderProvider';
 import { useSellerDashboard } from '@/features/sellers/SellerProvider';
 import { colors } from '@/theme/colors';
-import { spacing } from '@/theme/spacing';
 
 export default function CatalogScreen() {
   const router = useRouter();
   const { seller } = useSellerDashboard();
-  const { session, logout, updateAvatar } = useAuth();
+  const { session } = useAuth();
   const user = session?.user;
   const { resetBuilder } = useQuoteBuilder();
   const sellerGoal = seller
@@ -49,11 +47,6 @@ export default function CatalogScreen() {
     router.push('/quotes/select-client');
   }
 
-  // Estados para el menu de avatar
-  const avatarRef = useRef<View>(null);
-  const [menuVisible, setMenuVisible] = useState(false);
-  const [menuAnchor, setMenuAnchor] = useState({ top: 0, right: 0 });
-
   const {
     products,
     totalProducts,
@@ -64,6 +57,13 @@ export default function CatalogScreen() {
 
     search,
     setSearch,
+    submittedSearch,
+    submitSearch,
+    searchSuggestions,
+    recentSearches,
+    removeRecentSearch,
+    clearRecentSearches,
+    isOffline,
 
     categories,
     selectedCategory,
@@ -82,48 +82,25 @@ export default function CatalogScreen() {
     refreshing,
   } = useCatalog();
 
-  // Menu de avatar
-  function openMenu() {
-    avatarRef.current?.measureInWindow((x, y, width, height) => {
-      const windowWidth = Dimensions.get('window').width;
-      setMenuAnchor({
-        top: y + height + spacing.xs,
-        right: Math.max(spacing.md, windowWidth - (x + width)),
-      });
-      setMenuVisible(true);
-    });
+  const {
+    inputRef: searchInputRef,
+    focused: searchFocused,
+    onFocus: handleSearchFocus,
+    onBlur: handleSearchBlur,
+    dismiss: dismissSearch,
+  } = useSearchFieldFocus();
+  // Borde inferior de la barra de búsqueda: ahí se ancla el panel de sugerencias.
+  const [searchPanelTop, setSearchPanelTop] = useState(54);
+
+  function handleSubmitSearch(term?: string) {
+    submitSearch(term);
+    dismissSearch();
   }
 
-  async function handlePickPhoto() {
-    setMenuVisible(false);
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) return;
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
-
-    const pickedUri = result.assets?.[0]?.uri;
-    if (!result.canceled && pickedUri) {
-      await updateAvatar(pickedUri);
-    }
+  function handleSelectSuggestion(product: Product) {
+    handleSubmitSearch(product.name);
   }
 
-  async function handleLogout() {
-    setMenuVisible(false);
-    await logout();
-  }
-
-  const getInitial = () => {
-    if (!user?.name) return 'MS';
-    const names = user.name.split(' ');
-    return names.length > 1
-      ? names[0].charAt(0) + names[1].charAt(0)
-      : names[0].charAt(0);
-  };
 
   const getUserFirstName = () => {
     if (!user?.name) return 'Vendedor';
@@ -176,6 +153,7 @@ export default function CatalogScreen() {
         <View style={styles.center}>
           <Text style={styles.errorTitle}>No pudimos cargar el catálogo</Text>
           <Text style={styles.message}>{error}</Text>
+          <Button label="Reintentar" variant="ghost" onPress={refresh} />
         </View>
       </ScreenContainer>
     );
@@ -211,124 +189,123 @@ export default function CatalogScreen() {
             <Ionicons name="notifications" size={20} color={colors.black} />
             <View style={styles.bellDot} />
           </TouchableOpacity>
-          <TouchableOpacity
-            ref={avatarRef}
-            style={styles.avatarButton}
-            onPress={openMenu}
-            activeOpacity={0.7}
-          >
-            {user?.avatar ? (
-              <RNImage source={{ uri: user.avatar }} style={styles.avatar} />
-            ) : (
-              <Text style={styles.avatarText}>{getInitial()}</Text>
-            )}
-          </TouchableOpacity>
+          <UserAvatar size={44} />
         </View>
       </View>
 
-      {/* Contenedor Agrupado de Búsqueda, Filtros y Meta */}
-      <View style={styles.topControlsGroup}>
-        {/* Fila de Búsqueda y Filtro de Marca */}
-        <View style={styles.searchRow}>
-          <View style={styles.searchBarWrapper}>
-            {searchLoading ? (
-              <ActivityIndicator size="small" color={colors.gray} style={styles.searchIcon} />
-            ) : (
-              <Ionicons name="search" size={18} color={colors.gray} style={styles.searchIcon} />
-            )}
-
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Buscar producto por nombre"
-              placeholderTextColor={colors.gray}
-              value={search}
-              onChangeText={setSearch}
-              returnKeyType="search"
-            />
-
-            {search.length > 0 && (
-              <TouchableOpacity
-                style={styles.clearIcon}
-                onPress={() => setSearch('')}
-                hitSlop={8}
-              >
-                <Ionicons name="close-circle" size={18} color={colors.gray} />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          <BrandSelect
-            brands={brands}
-            selectedBrand={selectedBrand}
-            onSelectBrand={setSelectedBrand}
-          />
-        </View>
-
-        {/* Categorías scroll horizontal */}
-        <View style={styles.filtersWrapper}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.chipsRow}
-            style={styles.chipsScroll}
+      {/* Área de búsqueda: incluye el listado para que el panel de sugerencias pueda superponerse */}
+      <View style={styles.searchArea}>
+        {/* Contenedor Agrupado de Búsqueda, Filtros y Meta */}
+        <View style={styles.topControlsGroup}>
+          {/* Fila de Búsqueda y Filtro de Marca */}
+          <View
+            style={styles.searchRow}
+            onLayout={(event) => {
+              const { y, height } = event.nativeEvent.layout;
+              setSearchPanelTop(y + height + 6);
+            }}
           >
-            {categories.map((category) => (
-              <CategoryChip
-                key={category}
-                label={category}
-                selected={category === selectedCategory}
-                onPress={() => setSelectedCategory(category)}
+            <View style={styles.searchBarWrapper}>
+              {searchLoading ? (
+                <ActivityIndicator size="small" color={colors.gray} style={styles.searchIcon} />
+              ) : (
+                <Ionicons name="search" size={18} color={colors.gray} style={styles.searchIcon} />
+              )}
+
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Buscar producto por nombre"
+                placeholderTextColor={colors.gray}
+                value={search}
+                onChangeText={setSearch}
+                ref={searchInputRef}
+                onFocus={handleSearchFocus}
+                onBlur={handleSearchBlur}
+                onSubmitEditing={() => handleSubmitSearch()}
+                returnKeyType="search"
               />
-            ))}
-          </ScrollView>
+
+              {search.length > 0 && (
+                <TouchableOpacity
+                  style={styles.clearIcon}
+                  onPress={() => setSearch('')}
+                  hitSlop={8}
+                >
+                  <Ionicons name="close-circle" size={18} color={colors.gray} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <BrandSelect
+              brands={brands}
+              selectedBrand={selectedBrand}
+              onSelectBrand={setSelectedBrand}
+            />
+          </View>
+
+          {/* Categorías scroll horizontal */}
+          <View style={styles.filtersWrapper}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.chipsRow}
+              style={styles.chipsScroll}
+            >
+              {categories.map((category) => (
+                <CategoryChip
+                  key={category}
+                  label={category}
+                  selected={category === selectedCategory}
+                  onPress={() => setSelectedCategory(category)}
+                />
+              ))}
+            </ScrollView>
+          </View>
+
+          {/* Barra de progreso de Meta del Mes */}
+          <MonthlyGoalCard goal={sellerGoal} />
+
+
+          {/* Fila de Contador */}
+          <View style={styles.sortRow}>
+            <Text style={styles.sortLeftText} numberOfLines={1}>
+              {totalProducts} {totalProducts === 1 ? 'producto' : 'productos'}
+              {submittedSearch ? ` para “${submittedSearch}”` : ''}
+            </Text>
+          </View>
         </View>
 
-        {/* Barra de progreso de Meta del Mes */}
-        <MonthlyGoalCard goal={sellerGoal} />
+        {/* Listado de Productos */}
+        <ProductList
+          products={products}
+          hasMore={hasMore}
+          onLoadMore={loadMore}
+          hasActiveFilters={hasActiveFilters}
+          onClearFilters={resetFilters}
+          onPressProduct={handleOpenProduct}
+          searching={searchLoading}
+          refreshing={refreshing}
+          onRefresh={refresh}
+        />
 
-
-        {/* Fila de Contador */}
-        <View style={styles.sortRow}>
-          <Text style={styles.sortLeftText}>
-            {totalProducts} {totalProducts === 1 ? 'producto' : 'productos'}
-          </Text>
-        </View>
+        {searchFocused && (
+          <SearchSuggestionsPanel
+            top={searchPanelTop}
+            query={search}
+            suggestions={searchSuggestions}
+            recentSearches={recentSearches}
+            isOffline={isOffline}
+            onSubmitQuery={() => handleSubmitSearch()}
+            onSelectSuggestion={handleSelectSuggestion}
+            onSelectRecent={handleSubmitSearch}
+            onRemoveRecent={removeRecentSearch}
+            onClearRecents={clearRecentSearches}
+            onDismiss={dismissSearch}
+          />
+        )}
       </View>
 
-      {/* Listado de Productos */}
-      <ProductList
-        products={products}
-        hasMore={hasMore}
-        onLoadMore={loadMore}
-        hasActiveFilters={hasActiveFilters}
-        onClearFilters={resetFilters}
-        onPressProduct={handleOpenProduct}
-        searching={searchLoading}
-        refreshing={refreshing}
-        onRefresh={refresh}
-      />
 
-      {/* Modal del Menu de Avatar (Cerrar Sesión) */}
-      <Modal
-        visible={menuVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setMenuVisible(false)}
-      >
-        <Pressable style={styles.overlay} onPress={() => setMenuVisible(false)}>
-          <View style={[styles.menu, { top: menuAnchor.top, right: menuAnchor.right }]}>
-            <TouchableOpacity style={styles.menuItem} onPress={handlePickPhoto} activeOpacity={0.7}>
-              <Ionicons name="camera-outline" size={18} color={colors.black} />
-              <Text style={styles.menuItemText}>Cambiar foto</Text>
-            </TouchableOpacity>
-            <View style={styles.menuDivider} />
-            <TouchableOpacity style={styles.menuItem} onPress={handleLogout} activeOpacity={0.7}>
-              <Ionicons name="log-out-outline" size={18} color={colors.danger} />
-              <Text style={[styles.menuItemText, styles.menuItemDanger]}>Cerrar sesión</Text>
-            </TouchableOpacity>
-          </View>
-        </Pressable>
-      </Modal>
 
       {/* Botón flotante FAB */}
       <TouchableOpacity

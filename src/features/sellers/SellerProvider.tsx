@@ -52,24 +52,27 @@ export function SellerProvider({ children }: PropsWithChildren) {
     }
 
     let hasLocalCache = false;
+    // Si la API responde antes que la lectura de disco, la caché (más vieja)
+    // no debe sobrescribir los datos frescos.
+    let hasFreshData = false;
 
     // FASE 1: Carga instantánea desde caché local (0ms)
     getCachedSellerDashboard(userId).then((cached) => {
-      if (!active || !cached) return;
+      if (!active || !cached || hasFreshData) return;
       hasLocalCache = true;
       setSeller(cached);
+      setError(null);
       setIsLoading(false);
     });
 
     // FASE 2: Sincronización en segundo plano con la API
-    if (!hasLocalCache) {
-      setIsLoading(true);
-    }
+    setIsLoading(true);
     setError(null);
 
     getAuthenticatedSellerDashboard()
       .then((dashboard) => {
         if (!active) return;
+        hasFreshData = true;
         setSeller(dashboard);
         saveCachedSellerDashboard(userId, dashboard);
       })

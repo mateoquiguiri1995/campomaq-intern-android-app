@@ -24,7 +24,10 @@ function formatCompactCurrency(value: number): string {
 }
 
 function formatDate(value: string): string {
-  const date = new Date(`${value}T12:00:00`);
+  // Solo la parte AAAA-MM-DD: si el backend manda también la hora, anexar
+  // "T12:00:00" produciría una fecha inválida ("NaN undefined NaN").
+  const date = new Date(`${value.slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
   const months = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
   const day = String(date.getDate()).padStart(2, '0');
   const month = months[date.getMonth()];
@@ -63,12 +66,12 @@ function InvoiceCard({ invoice }: { invoice: ClientInvoice }) {
     <Pressable style={styles.invoiceCard} onPress={() => router.push(`/client/invoice/${invoice.invoiceNumber}`)}>
       <View style={styles.invoiceTopRow}>
         <Text style={styles.invoiceHeader}>
-          {formatDate(invoice.issuedAt).toUpperCase()} · {isSalesNote ? `nota de credito #${invoice.invoiceNumber}` : invoice.code}
+          {formatDate(invoice.issuedAt).toUpperCase()} · {isSalesNote ? `NOTA DE CRÉDITO #${invoice.invoiceNumber}` : invoice.code}
         </Text>
         <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
           {isSalesNote && (
             <Badge
-              label="nota de credito"
+              label="Nota de crédito"
               backgroundColor="#E3F2FD"
               textColor="#1565C0"
             />
@@ -83,9 +86,9 @@ function InvoiceCard({ invoice }: { invoice: ClientInvoice }) {
         </View>
       </View>
 
-      <Text style={styles.invoiceName}>{isSalesNote ? 'nota de credito' : invoice.name}</Text>
+      <Text style={styles.invoiceName}>{isSalesNote ? 'Nota de crédito' : invoice.name}</Text>
       <Text style={styles.invoiceMeta}>
-        {invoice.itemCount} {invoice.itemCount === 1 ? 'Item' : 'items'} - {invoice.paymentMethod}
+        {invoice.itemCount} {invoice.itemCount === 1 ? 'ítem' : 'ítems'} - {invoice.paymentMethod}
       </Text>
 
       <View style={styles.dashedLine} />

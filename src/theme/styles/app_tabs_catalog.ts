@@ -117,6 +117,11 @@ export const styles = StyleSheet.create({
     marginTop: 2,
     marginBottom: 2,
   },
+  /** Contiene barra, filtros y listado; referencia del panel de sugerencias. */
+  searchArea: {
+    flex: 1,
+    gap: spacing.md,
+  },
   topControlsGroup: {
     gap: 6,
   },

@@ -36,6 +36,14 @@ export type QuoteClient =
 
 export type QuoteStatus = 'Pendiente' | 'Enviada' | 'Aceptada' | 'Rechazada';
 
+export interface QuoteSellerInfo {
+  id: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  location?: string;
+}
+
 export interface Quote {
   id: string;
   client: QuoteClient;
@@ -43,6 +51,7 @@ export interface Quote {
   status: QuoteStatus;
   observations?: string;
   termsAndConditions?: string;
+  seller?: QuoteSellerInfo;
   createdAt: string;
   updatedAt: string;
 }

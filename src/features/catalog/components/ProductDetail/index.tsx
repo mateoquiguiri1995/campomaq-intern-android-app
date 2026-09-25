@@ -69,7 +69,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
       <Text style={styles.sectionTitle}>Precios</Text>
       <ProductPriceList product={product} />
 
-      {product.description && (
+      {!!product.description && (
         <>
           <Text style={styles.sectionTitle}>Ficha técnica</Text>
           <ProductDescription html={product.description} />

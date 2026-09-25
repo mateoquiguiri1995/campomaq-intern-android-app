@@ -1,11 +1,28 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
 import { useAppBootstrap } from '@/features/bootstrap/AppBootstrapProvider';
 import { getProducts, searchProducts } from '../services/productService';
+import {
+  filterIndexedProducts,
+  indexProducts,
+  suggestIndexedProducts,
+} from '../services/productSearchMatcher';
+import {
+  addRecentSearch,
+  clearRecentSearches,
+  getRecentSearches,
+  removeRecentSearch,
+  subscribeRecentSearches,
+} from '../services/recentSearches';
 import type { Product } from '../types';
 
 const PAGE_SIZE = 5;
-const SEARCH_DEBOUNCE_MS = 400;
+const MAX_SEARCH_SUGGESTIONS = 6;
+
+interface RemoteSearchResult {
+  term: string;
+  products: Product[];
+}
 
 export function useCatalog() {
   const {
@@ -15,6 +32,7 @@ export function useCatalog() {
     isLoadingAllProducts,
     isLoading: bootLoading,
     isSyncing,
+    isOfflineMode,
     productsError,
     reload,
   } = useAppBootstrap();
@@ -25,20 +43,26 @@ export function useCatalog() {
   const [browsePage, setBrowsePage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  const [search, setSearch] = useState('');
+  // `search` es lo que el vendedor va escribiendo (solo alimenta las
+  // sugerencias); `submittedSearch` es el término confirmado con "Buscar",
+  // una sugerencia o una búsqueda reciente, y es el que filtra el listado.
+  const [search, setSearchText] = useState('');
+  const [submittedSearch, setSubmittedSearch] = useState('');
+  // Permite repetir la misma búsqueda (ej. reintentar tras un error de red).
+  const [searchRevision, setSearchRevision] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState('Todos');
   const [selectedBrand, setSelectedBrand] = useState('Todas');
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
-  // Resultados de texto: vienen del endpoint /search (soporta coincidencias
-  // que un simple "includes" en el cliente no encontraría). Se guardan
-  // aparte de browseProducts/allProducts para no perder ninguno de los dos.
-  const [searchResults, setSearchResults] = useState<Product[]>([]);
+  // Última respuesta correcta de /search, asociada al término que la pidió.
+  // Solo se usa si coincide con el término confirmado actual.
+  const [remoteSearch, setRemoteSearch] = useState<RemoteSearchResult | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const searchRequestId = useRef(0);
 
-  const trimmedSearch = search.trim();
-  const isSearching = trimmedSearch.length > 0;
+  const recentSearches = useSyncExternalStore(subscribeRecentSearches, getRecentSearches);
+
+  const isSearching = submittedSearch.length > 0;
   const hasCategoryOrBrandFilter = selectedCategory !== 'Todos' || selectedBrand !== 'Todas';
   const hasActiveFilters = isSearching || hasCategoryOrBrandFilter;
 
@@ -58,42 +82,40 @@ export function useCatalog() {
   }, [bootProducts, bootProductsHasMore]);
 
   /**
-   * Búsqueda por texto con comportamiento híbrido: filtra inmediatamente
-   * usando la caché local y dispara la búsqueda remota de fondo con debounce.
-   * Limpiamos los resultados asíncronos previos al cambiar el término para que
-   * el catálogo muestre de forma instantánea y limpia la búsqueda local.
+   * Búsqueda remota del término confirmado. Mientras está pendiente, o si
+   * falla, el listado usa la caché local (ver `combinedSearchResults`). Sin
+   * conexión no se consulta /search: se trabaja solo con la caché. Al volver
+   * la conexión se repite la consulta para el término actual.
    */
   useEffect(() => {
-    if (!isSearching) {
-      setSearchResults([]);
+    const currentRequest = ++searchRequestId.current;
+
+    if (!submittedSearch) {
+      setRemoteSearch(null);
       setSearchLoading(false);
       return;
     }
 
-    const currentRequest = ++searchRequestId.current;
+    if (isOfflineMode) {
+      setSearchLoading(false);
+      return;
+    }
+
     setSearchLoading(true);
 
-    // Limpiamos resultados de la API anteriores para dar paso instantáneo a la caché local
-    setSearchResults([]);
-
-    const handle = setTimeout(() => {
-      searchProducts(trimmedSearch)
-        .then((results) => {
-          if (currentRequest !== searchRequestId.current) return;
-          setSearchResults(results);
-        })
-        .catch(() => {
-          if (currentRequest !== searchRequestId.current) return;
-          setSearchResults([]);
-        })
-        .finally(() => {
-          if (currentRequest !== searchRequestId.current) return;
-          setSearchLoading(false);
-        });
-    }, SEARCH_DEBOUNCE_MS);
-
-    return () => clearTimeout(handle);
-  }, [trimmedSearch, isSearching]);
+    searchProducts(submittedSearch)
+      .then((products) => {
+        if (currentRequest !== searchRequestId.current) return;
+        setRemoteSearch({ term: submittedSearch, products });
+      })
+      .catch(() => {
+        // Sin respuesta remota: se mantiene la caché como respaldo.
+      })
+      .finally(() => {
+        if (currentRequest !== searchRequestId.current) return;
+        setSearchLoading(false);
+      });
+  }, [submittedSearch, searchRevision, isOfflineMode]);
 
   /**
    * Al cambiar cualquier filtro, la paginación vuelve a empezar
@@ -101,32 +123,57 @@ export function useCatalog() {
    */
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [search, selectedCategory, selectedBrand]);
+  }, [submittedSearch, searchRevision, selectedCategory, selectedBrand]);
 
-  // 1. Filtrado local inmediato usando allProducts (caché) con fallback a browseProducts
-  const cacheResults = useMemo(() => {
-    if (!isSearching) return [];
+  // Catálogo local (allProducts, con fallback a browseProducts) indexado una
+  // sola vez por carga para que filtrar mientras se escribe sea liviano.
+  const localCatalogIndex = useMemo(
+    () => indexProducts(allProducts ?? browseProducts),
+    [allProducts, browseProducts]
+  );
 
-    const localCatalog = allProducts ?? browseProducts;
-    const query = trimmedSearch.toLowerCase();
+  // Sugerencias de autocompletado desde la caché para lo que se va
+  // escribiendo. useDeferredValue evita que el filtrado frene el tipeo.
+  const deferredSearch = useDeferredValue(search);
+  const searchSuggestions = useMemo(
+    () => suggestIndexedProducts(localCatalogIndex, deferredSearch, MAX_SEARCH_SUGGESTIONS),
+    [localCatalogIndex, deferredSearch]
+  );
 
-    return localCatalog.filter((product) => {
-      const matchesName = product.name.toLowerCase().includes(query);
-      const matchesCode = product.code.toLowerCase().includes(query);
-      const matchesBrand = product.brand ? product.brand.toLowerCase().includes(query) : false;
-      return matchesName || matchesCode || matchesBrand;
-    });
-  }, [allProducts, browseProducts, isSearching, trimmedSearch]);
+  // 1. Resultado local provisional/offline para el término confirmado.
+  const cacheResults = useMemo(
+    () => (isSearching ? filterIndexedProducts(localCatalogIndex, submittedSearch) : []),
+    [localCatalogIndex, isSearching, submittedSearch]
+  );
 
-  // 2. Fusión híbrida libre de duplicados (prioridad a la API, seguido de la caché)
+  // 2. Si /search respondió bien para este término, su resultado (en el orden
+  // de la API) reemplaza a la caché. Mientras está pendiente, sin conexión o
+  // si falló, se usa la caché local.
   const combinedSearchResults = useMemo(() => {
     if (!isSearching) return [];
 
-    const apiIds = new Set(searchResults.map((p) => p.id));
-    const uniqueCacheResults = cacheResults.filter((p) => !apiIds.has(p.id));
+    return remoteSearch?.term === submittedSearch ? remoteSearch.products : cacheResults;
+  }, [remoteSearch, cacheResults, isSearching, submittedSearch]);
 
-    return [...searchResults, ...uniqueCacheResults];
-  }, [searchResults, cacheResults, isSearching]);
+  /** Texto del input: no dispara búsquedas. Vaciarlo vuelve al catálogo. */
+  const setSearch = useCallback((text: string) => {
+    setSearchText(text);
+    if (!text.trim()) setSubmittedSearch('');
+  }, []);
+
+  /**
+   * Confirma una búsqueda (botón/tecla "Buscar", una sugerencia o una
+   * búsqueda reciente) y la guarda en el historial.
+   */
+  function submitSearch(term?: string) {
+    const value = term ?? search;
+    const trimmed = value.trim();
+
+    setSearchText(value);
+    setSubmittedSearch(trimmed);
+    setSearchRevision((revision) => revision + 1);
+    if (trimmed) addRecentSearch(trimmed);
+  }
 
   /**
    * Con búsqueda de texto se parte del resultado híbrido unificado. Con solo
@@ -296,6 +343,22 @@ export function useCatalog() {
     search,
 
     setSearch,
+
+    // Término confirmado que está filtrando el listado ('' = sin búsqueda).
+    submittedSearch,
+
+    submitSearch,
+
+    // Autocompletado desde la caché local para lo que se va escribiendo.
+    searchSuggestions,
+
+    recentSearches,
+
+    removeRecentSearch,
+
+    clearRecentSearches,
+
+    isOffline: isOfflineMode,
 
     selectedCategory,
 

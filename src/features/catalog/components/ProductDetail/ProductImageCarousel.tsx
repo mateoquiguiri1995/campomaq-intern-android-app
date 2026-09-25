@@ -55,9 +55,9 @@ export function ProductImageCarousel({ images }: ProductImageCarouselProps) {
 
       {images.length > 1 && (
         <View style={styles.dots}>
-          {images.map((image, index) => (
+          {images.map((_, index) => (
             <View
-              key={image}
+              key={index}
               style={[
                 styles.dot,
                 index === activeIndex && styles.dotActive,

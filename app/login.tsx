@@ -1,13 +1,13 @@
 import { useAuth } from '@/features/auth/AuthProvider';
 import { styles } from '@/theme/styles/app_login';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Animated,
-  Dimensions,
   Easing,
   Image,
   Keyboard,
@@ -21,8 +21,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-
 // Paleta de colores oficial adaptada al diseño premium
 const COLORS = {
   primary: '#EBD600',       // Amarillo Campo Maq
@@ -35,6 +33,9 @@ const COLORS = {
   danger: '#D64545',        // Rojo para errores
   pillBg: 'rgba(255, 255, 255, 0.12)', // Fondo de la píldora de sucursal
 };
+
+// Versión real de la app (app.json), en vez de un número fijo desactualizado.
+const APP_VERSION = Constants.expoConfig?.version ?? '0.0.0';
 
 export default function LoginScreen() {
   const { loginWithPassword } = useAuth();
@@ -360,7 +361,7 @@ export default function LoginScreen() {
 
           {/* Pie de Página */}
           <View style={styles.footerContainer}>
-            <Text style={styles.footerText}>v2.4.1 · Cayambe - Pichincha</Text>
+            <Text style={styles.footerText}>v{APP_VERSION} · Cayambe - Pichincha</Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
