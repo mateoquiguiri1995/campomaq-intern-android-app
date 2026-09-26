@@ -36,6 +36,7 @@ export default function SelectProductsScreen() {
     setSearch,
     submittedSearch,
     submitSearch,
+    selectSuggestion,
     searchSuggestions,
     recentSearches,
     removeRecentSearch,
@@ -68,7 +69,8 @@ export default function SelectProductsScreen() {
   }
 
   function handleSelectSuggestion(product: Product) {
-    handleSubmitSearch(product.name);
+    selectSuggestion(product);
+    dismissSearch();
   }
 
   function handleClearSearch() {

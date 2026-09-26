@@ -2,6 +2,7 @@ import type { Product } from '../types';
 
 import {
   BACKEND_PRODUCTS_PAGE_SIZE,
+  SEARCH_RESULTS_LIMIT,
   getProductCommercialDataFromApi,
   getProductsFromApi,
   searchProductsFromApi,
@@ -122,7 +123,7 @@ export async function searchProducts(query: string): Promise<Product[]> {
   }
 
   const [apiProducts, commercialItems] = await Promise.all([
-    searchProductsFromApi(query),
+    searchProductsFromApi(query, SEARCH_RESULTS_LIMIT),
     getSharedCommercialData(),
   ]);
 

@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  Easing,
   Image,
   Modal,
   Pressable,
@@ -40,6 +41,10 @@ export function UserAvatar({ size = 44, style }: UserAvatarProps) {
   const [confirmingLogout, setConfirmingLogout] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [animProgress] = useState(() => new Animated.Value(0));
+  // Confirmación visual (sin alertas) tras cambiar la foto.
+  const [photoFeedback, setPhotoFeedback] = useState<'success' | 'error' | null>(null);
+  const [feedbackProgress] = useState(() => new Animated.Value(0));
+  const [feedbackRing] = useState(() => new Animated.Value(0));
 
   // Iniciales del usuario
   const initials = (() => {
@@ -73,6 +78,44 @@ export function UserAvatar({ size = 44, style }: UserAvatarProps) {
     });
   }
 
+  /**
+   * Check (o cruz) que aparece sobre la foto con un rebote suave, un anillo
+   * que se expande alrededor y luego se desvanece dejando ver la foto nueva.
+   */
+  function playPhotoFeedback(kind: 'success' | 'error') {
+    feedbackProgress.stopAnimation();
+    feedbackRing.stopAnimation();
+    feedbackProgress.setValue(0);
+    feedbackRing.setValue(0);
+    setPhotoFeedback(kind);
+
+    Animated.parallel([
+      Animated.sequence([
+        Animated.spring(feedbackProgress, {
+          toValue: 1,
+          friction: 6,
+          tension: 70,
+          useNativeDriver: true,
+        }),
+        Animated.delay(900),
+        Animated.timing(feedbackProgress, {
+          toValue: 2,
+          duration: 420,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.timing(feedbackRing, {
+        toValue: 1,
+        duration: 900,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start(({ finished }) => {
+      if (finished) setPhotoFeedback(null);
+    });
+  }
+
   async function handlePickPhoto() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -95,9 +138,9 @@ export function UserAvatar({ size = 44, style }: UserAvatarProps) {
       try {
         setIsUpdatingPhoto(true);
         await updateAvatar(pickedUri);
-        Alert.alert('Foto actualizada', 'Tu avatar se ha actualizado con éxito.');
+        playPhotoFeedback('success');
       } catch {
-        Alert.alert('Error', 'No se pudo actualizar tu foto de perfil.');
+        playPhotoFeedback('error');
       } finally {
         setIsUpdatingPhoto(false);
       }
@@ -134,6 +177,25 @@ export function UserAvatar({ size = 44, style }: UserAvatarProps) {
     inputRange: [0, 1],
     outputRange: [0, 1],
   });
+
+  // 0 → 1: aparece con rebote; 1 → 2: se desvanece agrandándose apenas.
+  const feedbackOpacity = feedbackProgress.interpolate({
+    inputRange: [0, 0.6, 1, 2],
+    outputRange: [0, 1, 1, 0],
+  });
+  const feedbackIconScale = feedbackProgress.interpolate({
+    inputRange: [0, 1, 2],
+    outputRange: [0.3, 1, 1.12],
+  });
+  const ringScale = feedbackRing.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.35],
+  });
+  const ringOpacity = feedbackRing.interpolate({
+    inputRange: [0, 0.15, 1],
+    outputRange: [0, 0.9, 0],
+  });
+  const feedbackColor = photoFeedback === 'error' ? colors.danger : colors.success;
 
   return (
     <>
@@ -194,11 +256,40 @@ export function UserAvatar({ size = 44, style }: UserAvatarProps) {
 
             {/* Avatar Grande Central con Botón de Cámara */}
             <View style={styles.largeAvatarWrapper}>
+              {photoFeedback && (
+                <Animated.View
+                  pointerEvents="none"
+                  style={[
+                    styles.feedbackRing,
+                    { borderColor: feedbackColor, opacity: ringOpacity, transform: [{ scale: ringScale }] },
+                  ]}
+                />
+              )}
+
               <View style={styles.largeAvatarContainer}>
                 {user?.avatar ? (
                   <Image source={{ uri: user.avatar }} style={styles.largeAvatarImage} resizeMode="cover" />
                 ) : (
                   <Text style={styles.largeAvatarText}>{initials}</Text>
+                )}
+
+                {photoFeedback && (
+                  <Animated.View
+                    pointerEvents="none"
+                    accessibilityLiveRegion="polite"
+                    accessibilityLabel={
+                      photoFeedback === 'success' ? 'Foto actualizada' : 'No se pudo actualizar la foto'
+                    }
+                    style={[styles.feedbackOverlay, { backgroundColor: feedbackColor, opacity: feedbackOpacity }]}
+                  >
+                    <Animated.View style={{ transform: [{ scale: feedbackIconScale }] }}>
+                      <Ionicons
+                        name={photoFeedback === 'success' ? 'checkmark' : 'close'}
+                        size={52}
+                        color="#FFFFFF"
+                      />
+                    </Animated.View>
+                  </Animated.View>
                 )}
               </View>
 

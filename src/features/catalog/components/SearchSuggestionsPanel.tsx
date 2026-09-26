@@ -1,6 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { Pressable, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import { Pressable, ScrollView, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+
+import { useKeyboardTop } from '@/hooks/useKeyboardOverlap';
 
 import { colors } from '@/theme/colors';
 
@@ -8,6 +11,9 @@ import { normalizeSearchText, tokenizeSearchQuery } from '../services/productSea
 import type { Product } from '../types';
 
 const MAX_MATCHING_RECENTS = 3;
+const MAX_CARD_HEIGHT = 420;
+const MIN_CARD_HEIGHT = 160;
+const KEYBOARD_GAP = 12;
 
 interface SearchSuggestionsPanelProps {
   /** Distancia desde el borde superior del contenedor hasta debajo de la barra. */
@@ -47,6 +53,23 @@ export function SearchSuggestionsPanel({
   const trimmedQuery = query.trim();
   const hasQuery = trimmedQuery.length > 0;
 
+  // La tarjeta se limita al espacio libre sobre el teclado para que todas las
+  // opciones sean alcanzables haciendo scroll.
+  const { height: windowHeight } = useWindowDimensions();
+  const keyboardTop = useKeyboardTop();
+  const cardRef = useRef<View>(null);
+  const [cardTop, setCardTop] = useState<number | null>(null);
+
+  const handleCardLayout = useCallback(() => {
+    cardRef.current?.measureInWindow((_x, y) => setCardTop(y));
+  }, []);
+
+  const visibleBottom = keyboardTop ?? windowHeight;
+  const cardMaxHeight =
+    cardTop != null
+      ? Math.min(MAX_CARD_HEIGHT, Math.max(MIN_CARD_HEIGHT, visibleBottom - cardTop - KEYBOARD_GAP))
+      : MAX_CARD_HEIGHT;
+
   if (!hasQuery && recentSearches.length === 0) return null;
 
   const normalizedQuery = normalizeSearchText(trimmedQuery);
@@ -68,8 +91,18 @@ export function SearchSuggestionsPanel({
         accessibilityLabel="Cerrar sugerencias"
       />
 
-      <View style={styles.card}>
-        <ScrollView keyboardShouldPersistTaps="handled" bounces={false}>
+      <View
+        ref={cardRef}
+        onLayout={handleCardLayout}
+        style={[styles.card, { maxHeight: cardMaxHeight }]}
+      >
+        <ScrollView
+          style={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="none"
+          nestedScrollEnabled
+          showsVerticalScrollIndicator
+        >
           {!hasQuery ? (
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Búsquedas recientes</Text>

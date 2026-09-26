@@ -24,7 +24,7 @@ export const styles = StyleSheet.create({
   },
 
   card: {
-    maxHeight: 400,
+    flexShrink: 1,
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     borderWidth: 1,
@@ -36,6 +36,13 @@ export const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 12,
     elevation: 8,
+  },
+
+  // flexShrink permite que el ScrollView respete el alto máximo de la
+  // tarjeta; sin esto toma el alto de todo su contenido y no desplaza.
+  scroll: {
+    flexGrow: 0,
+    flexShrink: 1,
   },
 
   sectionHeader: {

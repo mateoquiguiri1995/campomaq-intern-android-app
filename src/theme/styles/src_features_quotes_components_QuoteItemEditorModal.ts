@@ -74,6 +74,10 @@ export const styles = StyleSheet.create({
     minHeight: 340,
     maxHeight: 520,
   },
+  // Con el teclado abierto el área debe poder encogerse y hacer scroll.
+  scrollAreaWithKeyboard: {
+    minHeight: 0,
+  },
   scrollContent: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xs,

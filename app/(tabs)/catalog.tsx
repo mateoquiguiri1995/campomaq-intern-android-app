@@ -59,6 +59,7 @@ export default function CatalogScreen() {
     setSearch,
     submittedSearch,
     submitSearch,
+    selectSuggestion,
     searchSuggestions,
     recentSearches,
     removeRecentSearch,
@@ -98,7 +99,8 @@ export default function CatalogScreen() {
   }
 
   function handleSelectSuggestion(product: Product) {
-    handleSubmitSearch(product.name);
+    selectSuggestion(product);
+    dismissSearch();
   }
 
 

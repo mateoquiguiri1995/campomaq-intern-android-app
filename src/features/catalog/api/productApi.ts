@@ -78,14 +78,23 @@ export async function getProductCommercialDataFromApi(): Promise<ApiProductComme
 }
 
 /**
+ * Máximo que acepta /search en `limit`. Sin `limit` el backend corta en 50 y,
+ * para búsquedas generales ("motocultor"), completa esos 50 en orden
+ * alfabético dejando fuera productos que sí coinciden.
+ */
+export const SEARCH_RESULTS_LIMIT = 200;
+
+/**
  * Busca productos por nombre o código.
  */
 export async function searchProductsFromApi(
-  query: string
+  query: string,
+  limit?: number
 ): Promise<ApiProduct[]> {
   const params = new URLSearchParams({
     q: query,
   });
+  if (limit) params.set('limit', String(limit));
 
   return apiGet<ApiProduct[]>(`/search?${params.toString()}`);
 }

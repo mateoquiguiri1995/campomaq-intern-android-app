@@ -124,6 +124,26 @@ export const styles = StyleSheet.create({
     color: colors.primary,
     letterSpacing: 1,
   },
+  // Confirmación animada al cambiar la foto
+  feedbackOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 54,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  feedbackRing: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 108,
+    height: 108,
+    borderRadius: 54,
+    borderWidth: 3,
+  },
   cameraBadge: {
     position: 'absolute',
     bottom: 0,

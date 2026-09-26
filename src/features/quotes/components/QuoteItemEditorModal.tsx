@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -10,10 +10,13 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/common/Button';
+import { useKeyboardOverlap } from '@/hooks/useKeyboardOverlap';
 import type { Product } from '@/features/catalog/types';
 import { colors } from '@/theme/colors';
+import { spacing } from '@/theme/spacing';
 import { styles } from '@/theme/styles/src_features_quotes_components_QuoteItemEditorModal';
 import { formatCurrency } from '@/utils/currency';
 
@@ -27,6 +30,9 @@ const TIERS: { key: PriceTier; label: string }[] = [
 ];
 
 type DiscountMode = 'pct' | 'amount';
+
+/** Secciones con campos de texto: al enfocarlas se desplaza el scroll hasta ellas. */
+type EditorSection = 'price' | 'quantity' | 'discount';
 
 interface QuoteItemValues {
   quantity: number;
@@ -58,6 +64,41 @@ export function QuoteItemEditorModal({
   const [discountMode, setDiscountMode] = useState<DiscountMode>('pct');
   const [discount, setDiscount] = useState('');
 
+  const insets = useSafeAreaInsets();
+  const {
+    rootRef: modalRootRef,
+    onRootLayout: handleModalRootLayout,
+    overlap: keyboardOverlap,
+    keyboardVisible,
+    rootHeight: modalRootHeight,
+  } = useKeyboardOverlap();
+  const scrollRef = useRef<ScrollView>(null);
+  const [sectionOffsets, setSectionOffsets] = useState<Partial<Record<EditorSection, number>>>({});
+  const [focusedSection, setFocusedSection] = useState<EditorSection | null>(null);
+
+  // Con el teclado abierto, lleva a la vista la sección del campo enfocado
+  // (cantidad y descuento quedan al final del formulario).
+  useEffect(() => {
+    if (!keyboardVisible || !focusedSection) return;
+    const y = sectionOffsets[focusedSection];
+    if (y == null) return;
+    const handle = setTimeout(() => {
+      scrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true });
+    }, 60);
+    return () => clearTimeout(handle);
+  }, [keyboardVisible, keyboardOverlap, focusedSection, sectionOffsets]);
+
+  function registerSection(section: EditorSection) {
+    return (event: { nativeEvent: { layout: { y: number } } }) => {
+      const { y } = event.nativeEvent.layout;
+      setSectionOffsets((prev) => (prev[section] === y ? prev : { ...prev, [section]: y }));
+    };
+  }
+
+  function focusSection(section: EditorSection) {
+    return () => setFocusedSection(section);
+  }
+
   useEffect(() => {
     if (visible) {
       setQuantity(String(initial?.quantity ?? 1));
@@ -84,6 +125,12 @@ export function QuoteItemEditorModal({
   }, [visible, initial, product]);
 
   if (!product) return null;
+
+  // Alto disponible para el sheet: pantalla menos teclado y barra de estado.
+  const sheetMaxHeight =
+    modalRootHeight != null
+      ? Math.max(260, modalRootHeight - keyboardOverlap - insets.top - spacing.sm)
+      : undefined;
 
   const parsedCustomPrice = parseFloat(customPriceInput.trim());
   const validCustomPrice =
@@ -261,8 +308,19 @@ export function QuoteItemEditorModal({
   }
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel}>
-      <View style={styles.modalRoot}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onCancel}
+      statusBarTranslucent
+      navigationBarTranslucent
+    >
+      <View
+        ref={modalRootRef}
+        onLayout={handleModalRootLayout}
+        style={[styles.modalRoot, Platform.OS === 'android' && { paddingBottom: keyboardOverlap }]}
+      >
         {/* Punto A: Fondo oscuro fijo al 100% que nunca se corta ni salta */}
         <Pressable style={styles.backdrop} onPress={onCancel} />
 
@@ -272,7 +330,7 @@ export function QuoteItemEditorModal({
           pointerEvents="box-none"
         >
           {/* Usamos View (no Pressable) para no bloquear los gestos de ScrollView en Android */}
-          <View style={styles.sheet}>
+          <View style={[styles.sheet, sheetMaxHeight != null && { maxHeight: sheetMaxHeight }]}>
             <View style={styles.handle} />
 
             {/* Cabecera del producto */}
@@ -287,14 +345,15 @@ export function QuoteItemEditorModal({
 
             {/* Área scrolleable: Controles de edición */}
             <ScrollView
-              style={styles.scrollArea}
+              ref={scrollRef}
+              style={[styles.scrollArea, keyboardVisible && styles.scrollAreaWithKeyboard]}
               contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
               nestedScrollEnabled
             >
               {/* Sección Precio */}
-              <View style={styles.section}>
+              <View style={styles.section} onLayout={registerSection('price')}>
                 <View style={styles.labelRow}>
                   <Text style={styles.sectionLabel}>Tipo de precio</Text>
                   {product.lastCost != null && (
@@ -406,6 +465,7 @@ export function QuoteItemEditorModal({
                           placeholder="0.00"
                           placeholderTextColor={colors.gray}
                           maxLength={9}
+                          onFocus={focusSection('price')}
                           autoFocus={!initial?.customPrice}
                         />
                       </View>
@@ -441,7 +501,7 @@ export function QuoteItemEditorModal({
               </View>
 
               {/* Sección Cantidad */}
-              <View style={styles.section}>
+              <View style={styles.section} onLayout={registerSection('quantity')}>
                 <View style={styles.labelRow}>
                   <Text style={styles.sectionLabel}>Cantidad</Text>
                   <Text
@@ -465,6 +525,7 @@ export function QuoteItemEditorModal({
                     onChangeText={handleQuantityChange}
                     keyboardType="number-pad"
                     maxLength={4}
+                    onFocus={focusSection('quantity')}
                   />
                   <Pressable style={styles.stepButton} onPress={() => adjustQuantity(1)}>
                     <Text style={styles.stepButtonText}>+</Text>
@@ -473,7 +534,7 @@ export function QuoteItemEditorModal({
               </View>
 
               {/* Sección Descuento */}
-              <View style={styles.section}>
+              <View style={styles.section} onLayout={registerSection('discount')}>
                 <View style={styles.labelRow}>
                   <Text style={styles.sectionLabel}>Descuento (opcional)</Text>
                   <View style={styles.discountModeToggle}>
@@ -524,6 +585,7 @@ export function QuoteItemEditorModal({
                     placeholder={discountMode === 'pct' ? '0' : '0.00'}
                     placeholderTextColor={colors.gray}
                     maxLength={discountMode === 'pct' ? 5 : 9}
+                    onFocus={focusSection('discount')}
                   />
                   {discountMode === 'pct' && <Text style={styles.discountFieldSymbol}>%</Text>}
                 </View>
@@ -531,7 +593,13 @@ export function QuoteItemEditorModal({
             </ScrollView>
 
             {/* Punto B: Footer Sticky con Resumen en Vivo + Botones */}
-            <View style={styles.stickyFooter}>
+            <View
+              style={[
+                styles.stickyFooter,
+                // Sin teclado, el footer no debe quedar bajo la barra de navegación.
+                !keyboardVisible && { paddingBottom: styles.stickyFooter.paddingBottom + insets.bottom },
+              ]}
+            >
               <View style={styles.stickySummaryCard}>
                 <View style={styles.stickySummaryLeft}>
                   <Text style={styles.stickySummaryLabel}>TOTAL LÍNEA</Text>
