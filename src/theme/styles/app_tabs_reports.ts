@@ -233,6 +233,11 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.black,
   },
+  quoteCardCopyOf: {
+    fontSize: 11,
+    color: colors.grayDark,
+    marginTop: 2,
+  },
   dottedDivider: {
     borderWidth: 0.5,
     borderColor: '#E5E5E5',

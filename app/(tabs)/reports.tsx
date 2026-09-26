@@ -10,6 +10,7 @@ import type { Product } from '@/features/catalog/types';
 import { useQuoteBuilder } from '@/features/quotes/QuoteBuilderProvider';
 import { deleteQuote, listQuotes, updateQuoteStatus } from '@/features/quotes/services/quoteService';
 import { getQuoteTotals } from '@/features/quotes/services/quoteCalculations';
+import { getQuoteCode } from '@/features/quotes/services/quoteCode';
 import type { PriceTier, Quote, QuoteItem, QuoteStatus } from '@/features/quotes/types';
 import { useSellerDashboard } from '@/features/sellers/SellerProvider';
 import { colors } from '@/theme/colors';
@@ -330,9 +331,6 @@ export default function ReportsScreen() {
               const total = getQuoteTotal(quote);
               const clientName = quote.client.client.name;
 
-              const cleanedId = quote.id.replace(/[^a-zA-Z0-9]/g, '');
-              const cotNum = cleanedId.substring(cleanedId.length - 4).toUpperCase();
-
               return (
                 <SwipeableQuoteCard key={quote.id} quote={quote} onDelete={() => handleDeleteQuote(quote)}>
                   <View style={styles.quoteCard}>
@@ -342,7 +340,7 @@ export default function ReportsScreen() {
                     onPress={() => handleStatusChange(quote)}
                   >
                     <Text style={styles.quoteCardCode}>
-                      COT-{cotNum} · {formatQuoteDate(quote.createdAt)}
+                      {getQuoteCode(quote.id)} · {formatQuoteDate(quote.createdAt)}
                     </Text>
                     <View style={[styles.statusBadge, { backgroundColor: badgeStyle.bg }]}>
                       <Text style={[styles.statusBadgeText, { color: badgeStyle.text }]}>
@@ -352,6 +350,9 @@ export default function ReportsScreen() {
                   </Pressable>
 
                   <Text style={styles.quoteCardClient}>{clientName}</Text>
+                  {quote.duplicatedFrom && (
+                    <Text style={styles.quoteCardCopyOf}>Copia de {getQuoteCode(quote.duplicatedFrom)}</Text>
+                  )}
 
                   <View style={styles.dottedDivider} />
 

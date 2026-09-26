@@ -52,6 +52,8 @@ export interface Quote {
   observations?: string;
   termsAndConditions?: string;
   seller?: QuoteSellerInfo;
+  /** Id de la cotización de la que se duplicó esta, para distinguir las copias. */
+  duplicatedFrom?: string;
   createdAt: string;
   updatedAt: string;
 }

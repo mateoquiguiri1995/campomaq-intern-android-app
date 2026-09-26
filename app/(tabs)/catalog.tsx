@@ -297,7 +297,6 @@ export default function CatalogScreen() {
             suggestions={searchSuggestions}
             recentSearches={recentSearches}
             isOffline={isOffline}
-            onSubmitQuery={() => handleSubmitSearch()}
             onSelectSuggestion={handleSelectSuggestion}
             onSelectRecent={handleSubmitSearch}
             onRemoveRecent={removeRecentSearch}

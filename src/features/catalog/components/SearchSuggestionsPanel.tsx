@@ -10,7 +10,6 @@ import { colors } from '@/theme/colors';
 import { normalizeSearchText, tokenizeSearchQuery } from '../services/productSearchMatcher';
 import type { Product } from '../types';
 
-const MAX_MATCHING_RECENTS = 3;
 const MAX_CARD_HEIGHT = 420;
 const MIN_CARD_HEIGHT = 160;
 const KEYBOARD_GAP = 12;
@@ -23,7 +22,6 @@ interface SearchSuggestionsPanelProps {
   suggestions: Product[];
   recentSearches: string[];
   isOffline?: boolean;
-  onSubmitQuery: () => void;
   onSelectSuggestion: (product: Product) => void;
   onSelectRecent: (term: string) => void;
   onRemoveRecent: (term: string) => void;
@@ -32,8 +30,8 @@ interface SearchSuggestionsPanelProps {
 }
 
 /**
- * Panel desplegable del buscador de productos: búsquedas recientes cuando el
- * campo está vacío y, mientras se escribe, autocompletado con productos de la
+ * Panel desplegable del buscador de productos: solo búsquedas recientes cuando
+ * el campo está vacío y, mientras se escribe, solo productos sugeridos de la
  * caché local. Elegir una opción confirma la búsqueda (que luego resuelve
  * /search); el panel en sí nunca modifica el listado.
  */
@@ -43,7 +41,6 @@ export function SearchSuggestionsPanel({
   suggestions,
   recentSearches,
   isOffline = false,
-  onSubmitQuery,
   onSelectSuggestion,
   onSelectRecent,
   onRemoveRecent,
@@ -72,16 +69,6 @@ export function SearchSuggestionsPanel({
 
   if (!hasQuery && recentSearches.length === 0) return null;
 
-  const normalizedQuery = normalizeSearchText(trimmedQuery);
-  const matchingRecents = hasQuery
-    ? recentSearches
-        .filter((term) => {
-          const normalized = normalizeSearchText(term);
-          return normalized !== normalizedQuery && normalized.includes(normalizedQuery);
-        })
-        .slice(0, MAX_MATCHING_RECENTS)
-    : recentSearches;
-
   return (
     <View style={[styles.overlay, { top }]}>
       <Pressable
@@ -103,48 +90,40 @@ export function SearchSuggestionsPanel({
           nestedScrollEnabled
           showsVerticalScrollIndicator
         >
-          {!hasQuery ? (
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Búsquedas recientes</Text>
-              <TouchableOpacity onPress={onClearRecents} hitSlop={8} activeOpacity={0.7}>
-                <Text style={styles.sectionAction}>Borrar todo</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <TouchableOpacity style={styles.row} onPress={onSubmitQuery} activeOpacity={0.7}>
-              <View style={[styles.rowIcon, styles.rowIconPrimary]}>
-                <Ionicons name="search" size={16} color={colors.onPrimary} />
+          {!hasQuery && (
+            <>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Búsquedas recientes</Text>
+                <TouchableOpacity onPress={onClearRecents} hitSlop={8} activeOpacity={0.7}>
+                  <Text style={styles.sectionAction}>Borrar todo</Text>
+                </TouchableOpacity>
               </View>
-              <Text style={styles.submitText} numberOfLines={1}>
-                Buscar <Text style={styles.submitQuery}>“{trimmedQuery}”</Text>
-              </Text>
-              <Ionicons name="return-down-back" size={18} color={colors.gray} />
-            </TouchableOpacity>
-          )}
 
-          {matchingRecents.map((term) => (
-            <TouchableOpacity
-              key={`recent-${term}`}
-              style={styles.row}
-              onPress={() => onSelectRecent(term)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.rowIcon}>
-                <Ionicons name="time-outline" size={17} color={colors.grayDark} />
-              </View>
-              <Text style={styles.recentText} numberOfLines={1}>
-                {term}
-              </Text>
-              <TouchableOpacity
-                onPress={() => onRemoveRecent(term)}
-                hitSlop={10}
-                activeOpacity={0.7}
-                accessibilityLabel={`Quitar ${term} de recientes`}
-              >
-                <Ionicons name="close" size={17} color={colors.gray} />
-              </TouchableOpacity>
-            </TouchableOpacity>
-          ))}
+              {recentSearches.map((term) => (
+                <TouchableOpacity
+                  key={`recent-${term}`}
+                  style={styles.row}
+                  onPress={() => onSelectRecent(term)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.rowIcon}>
+                    <Ionicons name="time-outline" size={17} color={colors.grayDark} />
+                  </View>
+                  <Text style={styles.recentText} numberOfLines={1}>
+                    {term}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => onRemoveRecent(term)}
+                    hitSlop={10}
+                    activeOpacity={0.7}
+                    accessibilityLabel={`Quitar ${term} de recientes`}
+                  >
+                    <Ionicons name="close" size={17} color={colors.gray} />
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              ))}
+            </>
+          )}
 
           {hasQuery && (
             <>
@@ -162,7 +141,7 @@ export function SearchSuggestionsPanel({
                 <Text style={styles.emptyText}>
                   {isOffline
                     ? 'No hay coincidencias en los productos guardados en el dispositivo.'
-                    : 'Sin coincidencias en los productos guardados. Presiona Buscar para consultar el catálogo.'}
+                    : 'Sin coincidencias en los productos guardados. Presiona buscar en el teclado para consultar el catálogo.'}
                 </Text>
               ) : (
                 suggestions.map((product) => (

@@ -1,29 +1,35 @@
-import { Ionicons } from '@expo/vector-icons';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { styles } from '@/theme/styles/app_quotes_summary';
 import { ScreenContainer } from '@/components/common/ScreenContainer';
+import { useAuth } from '@/features/auth/AuthProvider';
 import type { Product } from '@/features/catalog/types';
 import { QuoteItemEditorModal } from '@/features/quotes/components/QuoteItemEditorModal';
 import { QuoteTermsModal } from '@/features/quotes/components/QuoteTermsModal';
 import { useQuoteBuilder } from '@/features/quotes/QuoteBuilderProvider';
-import { getQuoteTotals, getLineDiscount, getLineTotal, getUnitPrice, getUtilityPct, getUtilityLevel, round2 } from '@/features/quotes/services/quoteCalculations';
+import { getLineDiscount, getLineTotal, getQuoteTotals, getUnitPrice, getUnitPriceNet, getUtilityLevel, getUtilityPct, round2 } from '@/features/quotes/services/quoteCalculations';
 import { getClientDisplayName, getClientDisplaySubtitle } from '@/features/quotes/services/quoteClient';
+import { getQuoteCode } from '@/features/quotes/services/quoteCode';
 import { shareQuotePdf } from '@/features/quotes/services/quotePdf';
 import { deleteQuote } from '@/features/quotes/services/quoteService';
-import { useAuth } from '@/features/auth/AuthProvider';
+import type { PriceTier, Quote, QuoteItem, QuoteSellerInfo } from '@/features/quotes/types';
 import { colors } from '@/theme/colors';
-import { radius, spacing } from '@/theme/spacing';
-import { typography } from '@/theme/typography';
+import { styles } from '@/theme/styles/app_quotes_summary';
 import { formatCurrency } from '@/utils/currency';
-import type { Quote, QuoteItem, QuoteSellerInfo } from '@/features/quotes/types';
+import { Ionicons } from '@expo/vector-icons';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+
+const PRICE_TIER_LABELS: Record<PriceTier, string> = {
+  A: 'Precio A · Contado',
+  B: 'Precio B · Tarjeta',
+  C: 'Precio C · Crédito',
+  CUSTOM: 'Personalizado',
+};
 
 export default function QuoteSummaryScreen() {
   const router = useRouter();
   const { session } = useAuth();
   const { draftId } = useLocalSearchParams<{ draftId?: string }>();
-  const { id, client, items, status, observations, termsAndConditions, seller, createdAt, loadDraft, updateItem, removeItem, saveDraft, markGenerated, duplicateQuote, resetBuilder } = useQuoteBuilder();
+  const { id, client, items, status, observations, termsAndConditions, seller, duplicatedFrom, createdAt, loadDraft, updateItem, removeItem, saveDraft, markGenerated, duplicateQuote, resetBuilder } = useQuoteBuilder();
 
   const [hydrating, setHydrating] = useState(!!draftId);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -120,30 +126,63 @@ export default function QuoteSummaryScreen() {
 
   async function handleDuplicate() {
     try {
-      await duplicateQuote();
-      router.replace('/quotes/summary');
+      const newId = await duplicateQuote();
+      // Se abre por su id para que se trate como cotización guardada (eliminar, etc.).
+      router.replace({ pathname: '/quotes/summary', params: { draftId: newId } });
     } catch (error) {
       Alert.alert('No se pudo duplicar', error instanceof Error ? error.message : 'Intenta de nuevo.');
+    }
+  }
+
+  async function deleteCurrentDraft() {
+    try {
+      if (!session?.user.id || !draftId) return;
+      await deleteQuote(session.user.id, draftId);
+      resetBuilder();
+      router.replace('/reports');
+    } catch (error) {
+      Alert.alert('No se pudo eliminar', error instanceof Error ? error.message : 'Intenta de nuevo.');
     }
   }
 
   function handleDelete() {
     Alert.alert('Eliminar borrador', 'Esta acción no se puede deshacer.', [
       { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Eliminar',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            if (!session?.user.id || !draftId) return;
-            await deleteQuote(session.user.id, draftId);
-            resetBuilder();
-            router.replace('/reports');
-          } catch (error) {
-            Alert.alert('No se pudo eliminar', error instanceof Error ? error.message : 'Intenta de nuevo.');
-          }
-        },
-      },
+      { text: 'Eliminar', style: 'destructive', onPress: deleteCurrentDraft },
+    ]);
+  }
+
+  /**
+   * Quitar el último producto de una cotización guardada la deja vacía: se
+   * ofrece eliminarla o guardarla sin productos, para que al salir no
+   * reaparezca con los productos que ya se habían quitado.
+   */
+  async function keepEmptyDraft(item: QuoteItem) {
+    removeItem(item.product.id);
+    try {
+      await saveDraft({ items: [] });
+    } catch (error) {
+      Alert.alert('No se pudo guardar', error instanceof Error ? error.message : 'Intenta de nuevo.');
+    }
+  }
+
+  function requestRemoveItem(item: QuoteItem, title: string, message: string) {
+    if (draftId && items.length === 1) {
+      Alert.alert(
+        'Cotización sin productos',
+        'Estás quitando el último producto. ¿Quieres eliminar esta cotización guardada?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Mantener vacía', onPress: () => keepEmptyDraft(item) },
+          { text: 'Eliminar', style: 'destructive', onPress: deleteCurrentDraft },
+        ]
+      );
+      return;
+    }
+
+    Alert.alert(title, message, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Quitar', style: 'destructive', onPress: () => removeItem(item.product.id) },
     ]);
   }
 
@@ -151,26 +190,12 @@ export default function QuoteSummaryScreen() {
     if (item.quantity > 1) {
       updateItem(item.product.id, { quantity: item.quantity - 1 });
     } else {
-      Alert.alert(
-        'Quitar producto',
-        '¿Quieres quitar este producto de la cotización?',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Quitar', style: 'destructive', onPress: () => removeItem(item.product.id) }
-        ]
-      );
+      requestRemoveItem(item, 'Quitar producto', '¿Quieres quitar este producto de la cotización?');
     }
   }
 
   function handleRemoveItem(item: QuoteItem) {
-    Alert.alert('Eliminar producto', `¿Quieres quitar ${item.product.name} de la cotización?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Eliminar',
-        style: 'destructive',
-        onPress: () => removeItem(item.product.id),
-      },
-    ]);
+    requestRemoveItem(item, 'Eliminar producto', `¿Quieres quitar ${item.product.name} de la cotización?`);
   }
 
   const getClientInitials = () => {
@@ -222,6 +247,18 @@ export default function QuoteSummaryScreen() {
           <Ionicons name="close" size={24} color={colors.black} />
         </TouchableOpacity>
       </View>
+
+      {draftId && (
+        <View style={styles.quoteCodeRow}>
+          <Text style={styles.quoteCodeText}>{getQuoteCode(id)}</Text>
+          {duplicatedFrom && (
+            <View style={styles.copyBadge}>
+              <Ionicons name="copy-outline" size={12} color={colors.grayDark} />
+              <Text style={styles.copyBadgeText}>Copia de {getQuoteCode(duplicatedFrom)}</Text>
+            </View>
+          )}
+        </View>
+      )}
 
       {/* Contenido Scrollable */}
       <ScrollView
@@ -302,26 +339,37 @@ export default function QuoteSummaryScreen() {
                 <View style={styles.productCardBottom}>
                   <View style={{ flex: 1, gap: 2 }}>
                     <Text style={styles.productUnitSubtitle}>
-                      {formatCurrency(getUnitPrice(item.product, item.priceTier, item.customPrice))} c/u
-                      {item.priceTier === 'CUSTOM' ? ' · Personalizado' : ''}
+                      {item.product.iva
+                        ? `${formatCurrency(getUnitPriceNet(item))} c/u sin IVA`
+                        : `${formatCurrency(getUnitPrice(item.product, item.priceTier, item.customPrice))} c/u · Sin IVA`}
                       {item.discountAmount
                         ? ` · Desc. ${formatCurrency(getLineDiscount(item))}`
                         : item.discountPct
                           ? ` · Desc. ${item.discountPct}%`
                           : ''}
-                      {item.product.iva ? ' · IVA 15%' : ' · Sin IVA'}
                     </Text>
+                    
                     {(() => {
                       const lineTot = getLineTotal(item);
                       const netUnit = round2(lineTot / Math.max(1, item.quantity));
                       const utPct = getUtilityPct(netUnit, item.product.lastCost);
-                      if (utPct == null) return null;
-                      const lvl = getUtilityLevel(utPct);
+                      const lvl = utPct == null ? null : getUtilityLevel(utPct);
                       const isLow = lvl === 'low';
                       const isMed = lvl === 'medium';
+                      const isCustom = item.priceTier === 'CUSTOM';
                       return (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-                          <View
+                        <View style={styles.productBadgesRow}>
+                          <View style={[styles.tierBadge, isCustom && styles.tierBadgeCustom]}>
+                            <Ionicons
+                              name={isCustom ? 'create-outline' : 'pricetag-outline'}
+                              size={11}
+                              color={isCustom ? colors.primaryDark : colors.grayDark}
+                            />
+                            <Text style={[styles.tierBadgeText, isCustom && styles.tierBadgeTextCustom]}>
+                              {PRICE_TIER_LABELS[item.priceTier]}
+                            </Text>
+                          </View>
+                          {utPct != null && <View
                             style={{
                               flexDirection: 'row',
                               alignItems: 'center',
@@ -350,7 +398,7 @@ export default function QuoteSummaryScreen() {
                             >
                               Utilidad {utPct.toFixed(1)}%
                             </Text>
-                          </View>
+                          </View>}
                         </View>
                       );
                     })()}

@@ -173,7 +173,6 @@ export default function SelectProductsScreen() {
             suggestions={searchSuggestions}
             recentSearches={recentSearches}
             isOffline={isOffline}
-            onSubmitQuery={() => handleSubmitSearch()}
             onSelectSuggestion={handleSelectSuggestion}
             onSelectRecent={handleSubmitSearch}
             onRemoveRecent={removeRecentSearch}

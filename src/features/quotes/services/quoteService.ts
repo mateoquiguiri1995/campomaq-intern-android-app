@@ -140,6 +140,7 @@ export async function duplicateQuote(userId: string, id: string): Promise<Quote>
     ...original,
     id: newId,
     status: 'Pendiente',
+    duplicatedFrom: original.id,
     createdAt: now,
     updatedAt: now,
   };

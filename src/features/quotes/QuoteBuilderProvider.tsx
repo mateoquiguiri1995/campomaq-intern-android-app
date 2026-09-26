@@ -38,6 +38,8 @@ interface QuoteBuilderContextValue {
   observations: string;
   termsAndConditions: string;
   seller: QuoteSellerInfo | null;
+  /** Id de la cotización original cuando esta es una copia. */
+  duplicatedFrom: string | null;
   createdAt: string;
   setClient: (client: QuoteClient) => void;
   setTermsAndObservations: (terms: string, obs: string) => void;
@@ -48,10 +50,18 @@ interface QuoteBuilderContextValue {
   removeItem: (productId: string) => void;
   /** Carga una cotización guardada para verla o, si está pendiente, editarla. */
   loadDraft: (draftId: string) => Promise<void>;
-  /** Crea una nueva cotización pendiente a partir de la actual. */
-  duplicateQuote: () => Promise<void>;
-  /** Persiste el estado actual como borrador y lo devuelve. */
-  saveDraft: (extra?: { observations?: string; termsAndConditions?: string; seller?: QuoteSellerInfo }) => Promise<Quote>;
+  /** Crea una nueva cotización pendiente a partir de la actual y devuelve su id. */
+  duplicateQuote: () => Promise<string>;
+  /**
+   * Persiste el estado actual como borrador y lo devuelve. `items` permite
+   * guardar una lista distinta a la del estado (ej. recién vaciada).
+   */
+  saveDraft: (extra?: {
+    observations?: string;
+    termsAndConditions?: string;
+    seller?: QuoteSellerInfo;
+    items?: QuoteItem[];
+  }) => Promise<Quote>;
   /** Persiste el estado actual como "generada" (ya se creó/compartió el PDF). */
   markGenerated: (extra?: { observations?: string; termsAndConditions?: string; seller?: QuoteSellerInfo }) => Promise<Quote>;
   resetBuilder: () => void;
@@ -72,6 +82,7 @@ export function QuoteBuilderProvider({ children, userId }: QuoteBuilderProviderP
   const [observations, setObservations] = useState<string>('');
   const [termsAndConditions, setTermsAndConditions] = useState<string>('');
   const [seller, setSellerState] = useState<QuoteSellerInfo | null>(null);
+  const [duplicatedFrom, setDuplicatedFrom] = useState<string | null>(null);
 
   const resetBuilder = useCallback(() => {
     setId(generateId());
@@ -82,6 +93,7 @@ export function QuoteBuilderProvider({ children, userId }: QuoteBuilderProviderP
     setObservations('');
     setTermsAndConditions('');
     setSellerState(null);
+    setDuplicatedFrom(null);
   }, []);
 
   const prevUserIdRef = useRef<string | null>(userId);
@@ -159,6 +171,7 @@ export function QuoteBuilderProvider({ children, userId }: QuoteBuilderProviderP
       setObservations(stored.observations ?? '');
       setTermsAndConditions(stored.termsAndConditions ?? '');
       setSellerState(stored.seller ?? null);
+      setDuplicatedFrom(stored.duplicatedFrom ?? null);
     },
     [resetBuilder, userId]
   );
@@ -166,7 +179,7 @@ export function QuoteBuilderProvider({ children, userId }: QuoteBuilderProviderP
   const persist = useCallback(
     async (
       nextStatus: QuoteStatus,
-      extra?: { observations?: string; termsAndConditions?: string; seller?: QuoteSellerInfo }
+      extra?: { observations?: string; termsAndConditions?: string; seller?: QuoteSellerInfo; items?: QuoteItem[] }
     ): Promise<Quote> => {
       if (!userId) {
         throw new Error('Tu sesión ya no está disponible. Vuelve a iniciar sesión.');
@@ -185,11 +198,12 @@ export function QuoteBuilderProvider({ children, userId }: QuoteBuilderProviderP
       const quote: Quote = {
         id,
         client,
-        items,
+        items: extra?.items ?? items,
         status: nextStatus,
         observations: obsVal.trim() || undefined,
         termsAndConditions: termsVal.trim() || undefined,
         seller: sellerVal ?? undefined,
+        duplicatedFrom: duplicatedFrom ?? undefined,
         createdAt,
         updatedAt: new Date().toISOString(),
       };
@@ -201,11 +215,11 @@ export function QuoteBuilderProvider({ children, userId }: QuoteBuilderProviderP
       if (extra?.seller !== undefined) setSellerState(extra.seller);
       return quote;
     },
-    [id, client, items, createdAt, status, userId, observations, termsAndConditions, seller]
+    [id, client, items, createdAt, status, userId, observations, termsAndConditions, seller, duplicatedFrom]
   );
 
   const saveDraft = useCallback(
-    (extra?: { observations?: string; termsAndConditions?: string; seller?: QuoteSellerInfo }) =>
+    (extra?: { observations?: string; termsAndConditions?: string; seller?: QuoteSellerInfo; items?: QuoteItem[] }) =>
       persist('Pendiente', extra),
     [persist]
   );
@@ -229,6 +243,8 @@ export function QuoteBuilderProvider({ children, userId }: QuoteBuilderProviderP
     setObservations(duplicated.observations ?? '');
     setTermsAndConditions(duplicated.termsAndConditions ?? '');
     setSellerState(duplicated.seller ?? null);
+    setDuplicatedFrom(duplicated.duplicatedFrom ?? null);
+    return duplicated.id;
   }, [id, userId]);
 
   const value = useMemo<QuoteBuilderContextValue>(
@@ -240,6 +256,7 @@ export function QuoteBuilderProvider({ children, userId }: QuoteBuilderProviderP
       observations,
       termsAndConditions,
       seller,
+      duplicatedFrom,
       createdAt,
       setClient,
       setTermsAndObservations,
@@ -261,6 +278,7 @@ export function QuoteBuilderProvider({ children, userId }: QuoteBuilderProviderP
       observations,
       termsAndConditions,
       seller,
+      duplicatedFrom,
       createdAt,
       setClient,
       setTermsAndObservations,
